@@ -183,11 +183,11 @@ table.fref tr:last-child td{border-bottom:none}
   <div class="step-guide">
     <div class="sg-title">What to do on this tab:</div>
     <ol>
-      <li>Upload your <strong>Digital stores</strong> (camera-based) using the first card — Store Type is set to <code>Digital</code> automatically.</li>
-      <li>Upload your <strong>Manual stores</strong> separately using the second card — Store Type is set to <code>Manual</code> automatically.</li>
-      <li>After each upload, map your column names to MDM fields and click <strong>"Apply &amp; Import Rows"</strong>.</li>
-      <li>Both lists are combined in the grid below. Fix any rows highlighted in red before downloading.</li>
-      <li>Optional: name the <strong>Custom Columns</strong> (e.g. "Zone", "City") to include extra metadata.</li>
+      <li>Upload <strong>Digital stores</strong> — Store Type = <code>Digital</code>, Test Shop = <code>0</code> set automatically.</li>
+      <li>Upload <strong>Manual stores</strong> separately if needed — Store Type = <code>Manual</code>, Test Shop = <code>0</code>.</li>
+      <li>Upload <strong>Test Stores</strong> separately if needed — Test Shop = <code>1</code> set automatically.</li>
+      <li>Only sections with data are included in the output. If only Digital stores are added, only those are exported.</li>
+      <li>All lists are combined in the grid below. Fix red rows before downloading.</li>
     </ol>
   </div>
 
@@ -214,7 +214,7 @@ table.fref tr:last-child td{border-bottom:none}
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
 
     <!-- Digital Stores -->
     <div class="card" style="margin-bottom:0;border-top:3px solid #2563eb">
@@ -222,7 +222,7 @@ table.fref tr:last-child td{border-bottom:none}
         <span class="card-title-left" style="color:#2563eb">🔵 Digital Stores</span>
         <span id="smDigitalCount" class="tag tag-blue">0 stores</span>
       </div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Stores captured via the ShelfWatch app (camera). Store Type = <strong>Digital</strong> for all rows imported here.</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Camera-based stores. Store Type = <code>Digital</code>, Test Shop = <code>0</code> auto-set.</p>
       <div class="upload-zone" onclick="document.getElementById('smFileDigital').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleSmDrop(event,'Digital')">
         <div class="uz-icon">📄</div>
         <strong>Upload Digital store list</strong>
@@ -241,7 +241,7 @@ table.fref tr:last-child td{border-bottom:none}
         <span class="card-title-left" style="color:#9333ea">🟣 Manual Stores</span>
         <span id="smManualCount" class="tag" style="background:#f3e8ff;color:#7e22ce">0 stores</span>
       </div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Stores where data is entered manually (no camera). Store Type = <strong>Manual</strong> for all rows imported here.</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">No-camera / manual entry stores. Store Type = <code>Manual</code>, Test Shop = <code>0</code> auto-set.</p>
       <div class="upload-zone" onclick="document.getElementById('smFileManual').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleSmDrop(event,'Manual')">
         <div class="uz-icon">📄</div>
         <strong>Upload Manual store list</strong>
@@ -251,6 +251,25 @@ table.fref tr:last-child td{border-bottom:none}
       <div id="smMapperWrapManual"></div>
       <div style="margin-top:10px">
         <button class="btn btn-secondary btn-sm" onclick="addSmRow('Manual')">+ Add Manual Store</button>
+      </div>
+    </div>
+
+    <!-- Test Stores -->
+    <div class="card" style="margin-bottom:0;border-top:3px solid #d97706">
+      <div class="card-title">
+        <span class="card-title-left" style="color:#d97706">🟡 Test Stores</span>
+        <span id="smTestCount" class="tag" style="background:#fef3c7;color:#92400e">0 stores</span>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">QC / sandbox stores. Test Shop = <code>1</code> auto-set. Store Type is mappable from your file.</p>
+      <div class="upload-zone" onclick="document.getElementById('smFileTest').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleSmDrop(event,'Test')">
+        <div class="uz-icon">📄</div>
+        <strong>Upload Test store list</strong>
+        <p>CSV or Excel — any column names are fine</p>
+      </div>
+      <input type="file" id="smFileTest" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSmUpload(this,'Test')">
+      <div id="smMapperWrapTest"></div>
+      <div style="margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="addSmRow('Test')">+ Add Test Store</button>
       </div>
     </div>
 
@@ -772,10 +791,12 @@ function applyMappingCore(section, data, wrap) {
   const selects = wrap.querySelectorAll('select[data-src]');
   const mapping = {};
   selects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
-  const rows = data.map(srcRow => {
+  // Strip empty rows before creating MDM rows
+  const cleanData = data.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
+  const rows = cleanData.map(srcRow => {
     const row = makeRow(section);
     Object.entries(mapping).forEach(([src, tgt]) => {
-      if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]);
+      if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]).trim();
     });
     return row;
   });
@@ -813,7 +834,7 @@ function autoGuess(field, targets) {
 }
 
 function makeRow(section) {
-  if (section==='sm') return {id:uid(),storeId:'',storeName:'',storeType:'Digital',testShop:'',retailer:'',regionArea:'',lat:'',lng:'',...Object.fromEntries(Array.from({length:12},(_,i)=>['c'+(i+1),'']))};
+  if (section==='sm') return {id:uid(),storeId:'',storeName:'',storeType:'Digital',testShop:'0',retailer:'',regionArea:'',lat:'',lng:'',...Object.fromEntries(Array.from({length:12},(_,i)=>['c'+(i+1),'']))};
   if (section==='um') return {id:uid(),userId:'',userName:'',password:'',monthlyDays:''};
   if (section==='sch') return {id:uid(),storeId:'',userId:'',startDate:'',frequency:'',endDate:'',customInterval:'',storeName:'',userName:''};
   if (section==='sku') return {id:uid(),skuName:'',categoryName:'',assortmentName:'',storeMetaCol:'',coreFlag:'',npdFlag:'',regularOsa:'',sos:''};
@@ -825,6 +846,12 @@ function makeRow(section) {
 // ============================================================
 // SECTION 2: STORE MASTER
 // ============================================================
+
+const SM_CONFIGS = {
+  Digital: { label:'Digital',      color:'#2563eb', forceFields:{storeType:'Digital', testShop:'0'} },
+  Manual:  { label:'Manual',       color:'#9333ea', forceFields:{storeType:'Manual',  testShop:'0'} },
+  Test:    { label:'Test Stores',  color:'#d97706', forceFields:{testShop:'1'}                      }
+};
 
 function handleSmDrop(e, storeType) {
   e.preventDefault();
@@ -858,19 +885,20 @@ function processSmFile(file, storeType) {
   }
 }
 
-function showSmMapper(data, fields, storeType, wrapId) {
-  // Exclude storeType from mappable columns — it's forced by the upload section
-  const targets = SECTION_COLS.sm.filter(t => !['storeType','c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'].includes(t.key));
+function showSmMapper(data, fields, uploadType, wrapId) {
+  const cfg = SM_CONFIGS[uploadType];
+  const forcedKeys = [...Object.keys(cfg.forceFields), 'c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'];
+  const targets = SECTION_COLS.sm.filter(t => !forcedKeys.includes(t.key));
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
-  const dataKey = '_smMapData_' + storeType;
+  const dataKey = '_smMapData_' + uploadType;
   window[dataKey] = data;
   const reqLabels = targets.filter(t => t.required).map(t => t.label);
-  const typeColor = storeType === 'Digital' ? '#2563eb' : '#9333ea';
+  const forceSummary = Object.entries(cfg.forceFields).map(([k,v])=>`${k.replace('storeType','Store Type').replace('testShop','Test Shop')} = <strong>${v}</strong>`).join(', ');
   let html = `<div class="mapper-wrap">
-    <div class="mapper-title">Column Mapper — ${data.length} rows · Store Type will be set to <strong style="color:${typeColor}">${storeType}</strong> for all rows</div>
+    <div class="mapper-title">Column Mapper — ${data.length} rows · Auto-set: ${forceSummary}</div>
     ${reqLabels.length ? `<div class="mapper-req-note"><strong>Required fields to map:</strong> ${reqLabels.join(', ')}</div>` : ''}
-    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">The tool has auto-guessed matches. Check each row then click Apply.</p>
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Auto-guessed matches shown. Check each row then click Apply.</p>
     <table class="mapper"><thead><tr><th>Your column name</th><th>→ Maps to MDM field</th></tr></thead><tbody>`;
   fields.forEach(f => {
     const guessedKey = autoGuess(f, targets);
@@ -881,24 +909,27 @@ function showSmMapper(data, fields, storeType, wrapId) {
   });
   html += `</tbody></table>
   <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-    <button class="btn btn-primary btn-sm" onclick="applySmMapping('${storeType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import as ${storeType}</button>
+    <button class="btn btn-primary btn-sm" style="background:${cfg.color}" onclick="applySmMapping('${uploadType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import (${cfg.label})</button>
     <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
   </div></div>`;
   wrap.innerHTML = html;
 }
 
-function applySmMapping(storeType, dataKey, wrap) {
-  const data = window[dataKey] || [];
-  const targets = SECTION_COLS.sm.filter(t => t.key !== 'storeType');
+function applySmMapping(uploadType, dataKey, wrap) {
+  const cfg = SM_CONFIGS[uploadType];
+  const rawData = window[dataKey] || [];
+  // Strip empty rows — rows where every value is blank
+  const data = rawData.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const selects = wrap.querySelectorAll('select[data-src]');
   const mapping = {};
   selects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
   const rows = data.map(srcRow => {
     const row = makeRow('sm');
     Object.entries(mapping).forEach(([src, tgt]) => {
-      if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]);
+      if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]).trim();
     });
-    row.storeType = storeType; // always force — overrides anything from source file
+    // Force all config fields last — always override source values
+    Object.entries(cfg.forceFields).forEach(([k,v]) => { row[k] = v; });
     return row;
   });
   S.sm.rows.push(...rows);
@@ -918,7 +949,12 @@ function renderSmCustomColInputs() {
   ).join('');
 }
 
-function addSmRow(storeType='Digital') { const r=makeRow('sm'); r.storeType=storeType; S.sm.rows.push(r); renderSmGrid(); updateDots(); }
+function addSmRow(uploadType='Digital') {
+  const r = makeRow('sm');
+  const cfg = SM_CONFIGS[uploadType];
+  if (cfg) Object.entries(cfg.forceFields).forEach(([k,v]) => { r[k]=v; });
+  S.sm.rows.push(r); renderSmGrid(); updateDots();
+}
 function deleteSmRow(id) { S.sm.rows = S.sm.rows.filter(r=>r.id!==id); renderSmGrid(); updateDots(); }
 
 function renderSmGrid() {
@@ -927,11 +963,13 @@ function renderSmGrid() {
   const activeCustom = S.sm.customHeaders.map((h,i)=>h.trim() ? {i,h} : null).filter(Boolean);
   const errors = validateSmRows();
   const rows = S.sm.rows;
-  const dCount = rows.filter(r=>r.storeType==='Digital').length;
-  const mCount = rows.filter(r=>r.storeType==='Manual').length;
-  document.getElementById('smRowCount').textContent = rows.length + ' total · ' + dCount + ' Digital · ' + mCount + ' Manual';
+  const tCount = rows.filter(r=>r.testShop==='1').length;
+  const dCount = rows.filter(r=>r.storeType==='Digital'&&r.testShop!=='1').length;
+  const mCount = rows.filter(r=>r.storeType==='Manual'&&r.testShop!=='1').length;
+  document.getElementById('smRowCount').textContent = rows.length + ' total · ' + dCount + ' Digital · ' + mCount + ' Manual · ' + tCount + ' Test';
   const dBadge=document.getElementById('smDigitalCount'); if(dBadge) dBadge.textContent=dCount+' store'+(dCount!==1?'s':'');
   const mBadge=document.getElementById('smManualCount'); if(mBadge) mBadge.textContent=mCount+' store'+(mCount!==1?'s':'');
+  const tBadge=document.getElementById('smTestCount');   if(tBadge) tBadge.textContent=tCount+' store'+(tCount!==1?'s':'');
   if (!rows.length) { container.innerHTML = '<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
   let html = `<table class="grid"><thead><tr>
     <th>#</th><th>Store ID *</th><th>Store Name *</th><th>Store Type *</th><th>Test Shop *</th>
@@ -949,10 +987,10 @@ function renderSmGrid() {
         <option ${row.storeType==='Digital'?'selected':''}>Digital</option>
         <option ${row.storeType==='Manual'?'selected':''}>Manual</option>
       </select></td>
-      <td class="${rowErrs.testShop?'err':''}"><select onchange="updateSmRow('${row.id}','testShop',this.value)">
+      <td class="${rowErrs.testShop?'err':''}" style="${!rowErrs.testShop&&row.testShop==='1'?'background:#fef3c7':!rowErrs.testShop&&row.testShop==='0'?'background:#f0fdf4':''}"><select onchange="updateSmRow('${row.id}','testShop',this.value)" style="font-weight:500">
         <option value="" ${row.testShop===''?'selected':''}>—</option>
-        <option value="1" ${row.testShop==='1'?'selected':''}>1</option>
-        <option value="0" ${row.testShop==='0'?'selected':''}>0</option>
+        <option value="1" ${row.testShop==='1'?'selected':''}>1 (Test)</option>
+        <option value="0" ${row.testShop==='0'?'selected':''}>0 (Live)</option>
       </select></td>
       ${smCell(row,'retailer','text',rowErrs,'Retailer')}
       ${smCell(row,'regionArea','text',rowErrs,'Region/Area')}
@@ -1182,7 +1220,8 @@ function handleSkuUpload(input) {
 }
 
 function applySkuMapping(dataKey, itemId) {
-  const data = window[dataKey]?.data || [];
+  const raw = window[dataKey]?.data || [];
+  const data = raw.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const item = document.getElementById(itemId);
   if (!item) return;
   const assortmentVal = item.querySelector('[id$="_assortment"]')?.value || '';
