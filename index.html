@@ -173,11 +173,11 @@ table.fref tr:last-child td{border-bottom:none}
   <div class="step-guide">
     <div class="sg-title">What to do on this tab:</div>
     <ol>
-      <li>If you have an existing store list (Excel or CSV), upload it using the box below — the tool will auto-match your columns.</li>
-      <li>No file? Click <strong>"+ Add Row"</strong> to add stores one by one.</li>
-      <li>After uploading, a <strong>Column Mapper</strong> appears — check each match and click <strong>"Apply &amp; Import Rows"</strong>.</li>
-      <li>Fix any rows highlighted in red (missing required fields) before downloading.</li>
-      <li>Optional: name the <strong>Custom Columns</strong> (e.g. "Zone", "City") if you need extra metadata beyond the standard fields.</li>
+      <li>Upload your <strong>Digital stores</strong> (camera-based) using the first card — Store Type is set to <code>Digital</code> automatically.</li>
+      <li>Upload your <strong>Manual stores</strong> separately using the second card — Store Type is set to <code>Manual</code> automatically.</li>
+      <li>After each upload, map your column names to MDM fields and click <strong>"Apply &amp; Import Rows"</strong>.</li>
+      <li>Both lists are combined in the grid below. Fix any rows highlighted in red before downloading.</li>
+      <li>Optional: name the <strong>Custom Columns</strong> (e.g. "Zone", "City") to include extra metadata.</li>
     </ol>
   </div>
 
@@ -192,7 +192,7 @@ table.fref tr:last-child td{border-bottom:none}
         <tbody>
           <tr><td><strong>Store ID</strong></td><td><span class="req-badge">Required</span></td><td>A unique code for each store. Use only letters, numbers, underscores or hyphens. E.g. <code>STORE_001</code></td></tr>
           <tr><td><strong>Store Name</strong></td><td><span class="req-badge">Required</span></td><td>Full name of the store. E.g. <code>Big Bazaar Andheri</code></td></tr>
-          <tr><td><strong>Store Type</strong></td><td><span class="req-badge">Required</span></td><td>Must be exactly <code>Digital</code> or <code>Manual</code></td></tr>
+          <tr><td><strong>Store Type</strong></td><td><span class="req-badge">Required</span></td><td>Set automatically based on which upload section you use — <code>Digital</code> or <code>Manual</code>. No need to include this column in your file.</td></tr>
           <tr><td><strong>Test Shop</strong></td><td><span class="req-badge">Required</span></td><td><code>0</code> = live / real store &nbsp;·&nbsp; <code>1</code> = test store used for QC</td></tr>
           <tr><td><strong>Retailer</strong></td><td><span class="opt-badge">Optional</span></td><td>Chain or retailer name. E.g. <code>Reliance Retail</code></td></tr>
           <tr><td><strong>Region / Area</strong></td><td><span class="opt-badge">Optional</span></td><td>City, state or geographic zone. E.g. <code>Mumbai North</code></td></tr>
@@ -204,20 +204,51 @@ table.fref tr:last-child td{border-bottom:none}
     </div>
   </div>
 
-  <div class="card" id="sm-upload-card">
-    <div class="card-title"><span class="card-title-left">📂 Upload Store List <span style="font-size:11px;font-weight:400;color:#9ca3af">(or skip and add rows manually below)</span></span></div>
-    <div class="upload-zone" id="smUploadZone" onclick="document.getElementById('smFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'sm')">
-      <div class="uz-icon">📄</div>
-      <strong>Click to upload or drag &amp; drop</strong>
-      <p>CSV or Excel (.xlsx / .xls) — any column names are fine, you'll map them in the next step</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+    <!-- Digital Stores -->
+    <div class="card" style="margin-bottom:0;border-top:3px solid #2563eb">
+      <div class="card-title">
+        <span class="card-title-left" style="color:#2563eb">🔵 Digital Stores</span>
+        <span id="smDigitalCount" class="tag tag-blue">0 stores</span>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Stores captured via the ShelfWatch app (camera). Store Type = <strong>Digital</strong> for all rows imported here.</p>
+      <div class="upload-zone" onclick="document.getElementById('smFileDigital').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleSmDrop(event,'Digital')">
+        <div class="uz-icon">📄</div>
+        <strong>Upload Digital store list</strong>
+        <p>CSV or Excel — any column names are fine</p>
+      </div>
+      <input type="file" id="smFileDigital" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSmUpload(this,'Digital')">
+      <div id="smMapperWrapDigital"></div>
+      <div style="margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="addSmRow('Digital')">+ Add Digital Store</button>
+      </div>
     </div>
-    <input type="file" id="smFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleUpload(this,'sm')">
-    <div id="smMapperWrap"></div>
+
+    <!-- Manual Stores -->
+    <div class="card" style="margin-bottom:0;border-top:3px solid #9333ea">
+      <div class="card-title">
+        <span class="card-title-left" style="color:#9333ea">🟣 Manual Stores</span>
+        <span id="smManualCount" class="tag" style="background:#f3e8ff;color:#7e22ce">0 stores</span>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Stores where data is entered manually (no camera). Store Type = <strong>Manual</strong> for all rows imported here.</p>
+      <div class="upload-zone" onclick="document.getElementById('smFileManual').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleSmDrop(event,'Manual')">
+        <div class="uz-icon">📄</div>
+        <strong>Upload Manual store list</strong>
+        <p>CSV or Excel — any column names are fine</p>
+      </div>
+      <input type="file" id="smFileManual" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSmUpload(this,'Manual')">
+      <div id="smMapperWrapManual"></div>
+      <div style="margin-top:10px">
+        <button class="btn btn-secondary btn-sm" onclick="addSmRow('Manual')">+ Add Manual Store</button>
+      </div>
+    </div>
+
   </div>
 
   <div class="card">
     <div class="card-title">
-      <span class="card-title-left">🏪 Store Rows</span>
+      <span class="card-title-left">🏪 All Stores <span style="font-size:11px;font-weight:400;color:#9ca3af">(Digital + Manual combined — this is what gets exported)</span></span>
     </div>
     <div class="card" style="padding:12px;background:#f9fafb">
       <div style="font-size:12.5px;font-weight:600;margin-bottom:4px;color:#374151">Custom Metadata Columns <span style="font-weight:400;color:#9ca3af">(optional — up to 12 extra columns)</span></div>
@@ -226,7 +257,6 @@ table.fref tr:last-child td{border-bottom:none}
     </div>
     <div style="height:10px"></div>
     <div class="grid-toolbar">
-      <button class="btn btn-secondary btn-sm" onclick="addSmRow()">+ Add Row</button>
       <span class="row-count" id="smRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="smGridContainer"></div></div>
@@ -768,7 +798,7 @@ function autoGuess(field, targets) {
 }
 
 function makeRow(section) {
-  if (section==='sm') return {id:uid(),storeId:'',storeName:'',storeType:'',testShop:'',retailer:'',regionArea:'',lat:'',lng:'',...Object.fromEntries(Array.from({length:12},(_,i)=>['c'+(i+1),'']))};
+  if (section==='sm') return {id:uid(),storeId:'',storeName:'',storeType:'Digital',testShop:'',retailer:'',regionArea:'',lat:'',lng:'',...Object.fromEntries(Array.from({length:12},(_,i)=>['c'+(i+1),'']))};
   if (section==='um') return {id:uid(),userId:'',userName:'',password:'',monthlyDays:''};
   if (section==='sch') return {id:uid(),storeId:'',userId:'',startDate:'',frequency:'',endDate:'',customInterval:'',storeName:'',userName:''};
   if (section==='sku') return {id:uid(),skuName:'',categoryName:'',assortmentName:'',storeMetaCol:'',coreFlag:'',npdFlag:'',regularOsa:'',sos:''};
@@ -780,6 +810,88 @@ function makeRow(section) {
 // ============================================================
 // SECTION 2: STORE MASTER
 // ============================================================
+
+function handleSmDrop(e, storeType) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processSmFile(file, storeType);
+}
+
+function handleSmUpload(input, storeType) {
+  if (input.files[0]) processSmFile(input.files[0], storeType);
+  input.value = '';
+}
+
+function processSmFile(file, storeType) {
+  const wrapId = 'smMapperWrap' + storeType;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    Papa.parse(file, { header:true, skipEmptyLines:true,
+      complete: res => showSmMapper(res.data, res.meta.fields, storeType, wrapId)
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const fields = data.length ? Object.keys(data[0]) : [];
+      showSmMapper(data, fields, storeType, wrapId);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function showSmMapper(data, fields, storeType, wrapId) {
+  // Exclude storeType from mappable columns — it's forced by the upload section
+  const targets = SECTION_COLS.sm.filter(t => !['storeType','c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'].includes(t.key));
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const dataKey = '_smMapData_' + storeType;
+  window[dataKey] = data;
+  const reqLabels = targets.filter(t => t.required).map(t => t.label);
+  const typeColor = storeType === 'Digital' ? '#2563eb' : '#9333ea';
+  let html = `<div class="mapper-wrap">
+    <div class="mapper-title">Column Mapper — ${data.length} rows · Store Type will be set to <strong style="color:${typeColor}">${storeType}</strong> for all rows</div>
+    ${reqLabels.length ? `<div class="mapper-req-note"><strong>Required fields to map:</strong> ${reqLabels.join(', ')}</div>` : ''}
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">The tool has auto-guessed matches. Check each row then click Apply.</p>
+    <table class="mapper"><thead><tr><th>Your column name</th><th>→ Maps to MDM field</th></tr></thead><tbody>`;
+  fields.forEach(f => {
+    const guessedKey = autoGuess(f, targets);
+    html += `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
+      <option value="">— skip this column —</option>
+      ${targets.map(t => `<option value="${t.key}" ${guessedKey===t.key?'selected':''}>${t.required?'* ':''}${t.label}</option>`).join('')}
+    </select></td></tr>`;
+  });
+  html += `</tbody></table>
+  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+    <button class="btn btn-primary btn-sm" onclick="applySmMapping('${storeType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import as ${storeType}</button>
+    <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
+  </div></div>`;
+  wrap.innerHTML = html;
+}
+
+function applySmMapping(storeType, dataKey, wrap) {
+  const data = window[dataKey] || [];
+  const targets = SECTION_COLS.sm.filter(t => t.key !== 'storeType');
+  const selects = wrap.querySelectorAll('select[data-src]');
+  const mapping = {};
+  selects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
+  const rows = data.map(srcRow => {
+    const row = makeRow('sm');
+    Object.entries(mapping).forEach(([src, tgt]) => {
+      if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]);
+    });
+    row.storeType = storeType; // always force — overrides anything from source file
+    return row;
+  });
+  S.sm.rows.push(...rows);
+  renderSmGrid();
+  updateDots();
+  wrap.remove();
+}
+
 function renderSmCustomColInputs() {
   const container = document.getElementById('smCustomColInputs');
   if (!container) return;
@@ -791,7 +903,7 @@ function renderSmCustomColInputs() {
   ).join('');
 }
 
-function addSmRow() { S.sm.rows.push(makeRow('sm')); renderSmGrid(); updateDots(); }
+function addSmRow(storeType='Digital') { const r=makeRow('sm'); r.storeType=storeType; S.sm.rows.push(r); renderSmGrid(); updateDots(); }
 function deleteSmRow(id) { S.sm.rows = S.sm.rows.filter(r=>r.id!==id); renderSmGrid(); updateDots(); }
 
 function renderSmGrid() {
@@ -800,7 +912,11 @@ function renderSmGrid() {
   const activeCustom = S.sm.customHeaders.map((h,i)=>h.trim() ? {i,h} : null).filter(Boolean);
   const errors = validateSmRows();
   const rows = S.sm.rows;
-  document.getElementById('smRowCount').textContent = rows.length + ' rows';
+  const dCount = rows.filter(r=>r.storeType==='Digital').length;
+  const mCount = rows.filter(r=>r.storeType==='Manual').length;
+  document.getElementById('smRowCount').textContent = rows.length + ' total · ' + dCount + ' Digital · ' + mCount + ' Manual';
+  const dBadge=document.getElementById('smDigitalCount'); if(dBadge) dBadge.textContent=dCount+' store'+(dCount!==1?'s':'');
+  const mBadge=document.getElementById('smManualCount'); if(mBadge) mBadge.textContent=mCount+' store'+(mCount!==1?'s':'');
   if (!rows.length) { container.innerHTML = '<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
   let html = `<table class="grid"><thead><tr>
     <th>#</th><th>Store ID *</th><th>Store Name *</th><th>Store Type *</th><th>Test Shop *</th>
@@ -813,7 +929,7 @@ function renderSmGrid() {
       <td class="rn">${idx+1}</td>
       ${smCell(row,'storeId','text',rowErrs,'Store ID')}
       ${smCell(row,'storeName','text',rowErrs,'Store Name')}
-      <td class="${rowErrs.storeType?'err':''}"><select onchange="updateSmRow('${row.id}','storeType',this.value)">
+      <td class="${rowErrs.storeType?'err':''}" style="${!rowErrs.storeType&&row.storeType==='Digital'?'background:#eff6ff':!rowErrs.storeType&&row.storeType==='Manual'?'background:#faf5ff':''}"><select onchange="updateSmRow('${row.id}','storeType',this.value)" style="font-weight:500">
         <option value="" ${!row.storeType?'selected':''}>—</option>
         <option ${row.storeType==='Digital'?'selected':''}>Digital</option>
         <option ${row.storeType==='Manual'?'selected':''}>Manual</option>
