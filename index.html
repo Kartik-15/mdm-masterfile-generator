@@ -376,9 +376,30 @@ table.fref tr:last-child td{border-bottom:none}
           </table>
         </div>
       </div>
-      <div class="alert alert-info">Store ID and User ID dropdowns auto-populate from Store Master and User Master. Store Name and User Name fill in automatically after selection — no need to type them.</div>
+      <!-- Coverage summary -->
+      <div id="schCoverageWrap" style="margin-bottom:10px"></div>
+
+      <!-- Auto-fill card -->
+      <div class="card" style="padding:12px;background:#f9fafb;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:8px"><span class="card-title-left">⚡ Auto-fill from Store Master &amp; User Master</span></div>
+        <div id="schAutoFillPanel">
+          <button class="btn btn-primary btn-sm" onclick="showSchAutoFill()">Configure &amp; Auto-fill →</button>
+        </div>
+      </div>
+
+      <!-- Upload mapping file -->
+      <div class="card" style="padding:12px;background:#f9fafb;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:6px"><span class="card-title-left">📂 Upload Mapping File <span style="font-size:11px;font-weight:400;color:#9ca3af">(alternative — upload a store-user assignment file)</span></span></div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">Upload a CSV or Excel with columns: <code>Store ID</code>, <code>User ID</code>, <code>Frequency</code> (optional). One row per store-user assignment.</p>
+        <div class="upload-zone" style="padding:14px" onclick="document.getElementById('schFile').click()">
+          <strong>Click to upload mapping file (CSV or Excel)</strong>
+        </div>
+        <input type="file" id="schFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleUpload(this,'sch')">
+        <div id="schMapperWrap"></div>
+      </div>
+
       <div class="grid-toolbar">
-        <button class="btn btn-secondary btn-sm" onclick="addSchRow()">+ Add Row</button>
+        <button class="btn btn-secondary btn-sm" onclick="addSchRow()">+ Add Row Manually</button>
         <span class="row-count" id="schRowCount">0 rows</span>
       </div>
       <div class="grid-wrap"><div id="schGridContainer"></div></div>
@@ -701,6 +722,14 @@ const SECTION_COLS = {
     {key:'questionType',label:'Question Type',required:true},
     {key:'answers',label:'Answers'},
     {key:'questionFlag',label:'Question Flag',required:true}
+  ],
+  sch: [
+    {key:'storeId',label:'Store ID',required:true},
+    {key:'userId',label:'User ID',required:true},
+    {key:'frequency',label:'Frequency',required:true},
+    {key:'customInterval',label:'Custom Interval'},
+    {key:'startDate',label:'Start Date'},
+    {key:'endDate',label:'End Date'}
   ]
 };
 
@@ -810,6 +839,7 @@ function applyMappingCore(section, data, wrap) {
   });
   if (section === 'sm') { S.sm.rows.push(...rows); renderSmGrid(); }
   else if (section === 'um') { S.um.rows.push(...rows); renderUmGrid(); }
+  else if (section === 'sch') { S.sch.rows.push(...rows); renderSchGrid(); }
   else if (section === 'sam') { S.sam.rows.push(...rows); renderSamGrid(); }
   else if (section === 'sv') { S.sv.rows.push(...rows); renderSvGrid(); }
   updateDots();
@@ -830,7 +860,9 @@ function autoGuess(field, targets) {
     coreflag:['coreFlag'], npdflag:['npdFlag'], regularosa:['regularOsa'], sos:['sos'],
     shopsection:['shelfSection'], shelfimages:['shelfImages'],
     questiontype:['questionType'], answers:['answers'], questionflag:['questionFlag'],
-    questions:['questions'], sections:['sections']
+    questions:['questions'], sections:['sections'],
+    frequency:['frequency'], custominterval:['customInterval'],
+    startdate:['startDate'], enddate:['endDate']
   };
   for (const [pattern, keys] of Object.entries(guesses)) {
     if (f.includes(pattern)) {
@@ -1099,7 +1131,7 @@ function renderUmGrid() {
   if (!c) return;
   document.getElementById('umRowCount').textContent = S.um.rows.length + ' rows';
   const errs = validateUmRows();
-  if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; checkAndShowAutoGen(); return; }
+  if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; checkAndShowAutoGenPasswords(); return; }
   let html = `<table class="grid"><thead><tr><th>#</th><th>User ID *</th><th>User Name *</th><th>Password *</th><th>Monthly Working Days</th><th></th></tr></thead><tbody>`;
   S.um.rows.forEach((row,idx) => {
     const e = errs[row.id]||{};
@@ -1114,7 +1146,7 @@ function renderUmGrid() {
   });
   html += '</tbody></table>';
   c.innerHTML = html;
-  checkAndShowAutoGen();
+  checkAndShowAutoGenPasswords();
 }
 
 function validateUmRows() {
@@ -1132,6 +1164,56 @@ function validateUmRows() {
   return errors;
 }
 
+function generateSecurePassword() {
+  const upper='ABCDEFGHJKLMNPQRSTUVWXYZ', lower='abcdefghjkmnpqrstuvwxyz',
+        nums='23456789', special='!@#$%&*?';
+  const all=upper+lower+nums+special;
+  // Guarantee one of each required char type
+  let pwd=[
+    upper[Math.floor(Math.random()*upper.length)],
+    lower[Math.floor(Math.random()*lower.length)],
+    nums[Math.floor(Math.random()*nums.length)],
+    special[Math.floor(Math.random()*special.length)]
+  ];
+  for (let i=4;i<8;i++) pwd.push(all[Math.floor(Math.random()*all.length)]);
+  // Shuffle
+  for (let i=pwd.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pwd[i],pwd[j]]=[pwd[j],pwd[i]];}
+  return pwd.join('');
+}
+
+function checkAndShowAutoGenPasswords() {
+  const wrap = document.getElementById('umAutoGenWrap');
+  if (!wrap) return;
+  // Check both blank User IDs and blank passwords
+  const blankIds = S.um.rows.filter(r => !r.userId.trim());
+  const blankPwd = S.um.rows.filter(r => !r.password.trim());
+  let html = '';
+  if (blankIds.length) {
+    const prefix = suggestUidPrefix();
+    html += `<div class="alert alert-info" style="margin-top:10px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">
+      <span><strong>${blankIds.length} row(s) have no User ID.</strong> Auto-generate using project name prefix?
+      Suggested: <code>${prefix}_01</code>, <code>${prefix}_02</code>, …</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <input type="text" id="uidPrefixInput" value="${escHtml(prefix)}" style="width:110px;padding:4px 8px;border:1px solid #93c5fd;border-radius:5px;font-size:12px" placeholder="Prefix">
+        <button class="btn btn-primary btn-sm" onclick="generateUserIds()">Generate IDs</button>
+      </div>
+    </div>`;
+  }
+  if (blankPwd.length) {
+    html += `<div class="alert" style="background:#fefce8;border:1px solid #fde68a;color:#92400e;border-radius:6px;padding:9px 13px;margin-top:8px;font-size:12.5px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">
+      <span><strong>${blankPwd.length} row(s) have no password.</strong> Auto-generate secure passwords? (8+ chars, uppercase + lowercase + number + special character)</span>
+      <button class="btn btn-primary btn-sm" onclick="generatePasswords()" style="flex-shrink:0">Generate Passwords</button>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function generatePasswords() {
+  S.um.rows.forEach(row => { if (!row.password.trim()) row.password = generateSecurePassword(); });
+  renderUmGrid();
+  updateDots();
+}
+
 function suggestUidPrefix() {
   const name = (S.projectName || '').trim();
   if (!name) return 'USER';
@@ -1141,21 +1223,6 @@ function suggestUidPrefix() {
   return (words[0].slice(0,3) + words[words.length-1].slice(0,2)).toUpperCase();
 }
 
-function checkAndShowAutoGen() {
-  const wrap = document.getElementById('umAutoGenWrap');
-  if (!wrap) return;
-  const blankIds = S.um.rows.filter(r => !r.userId.trim());
-  if (!blankIds.length) { wrap.innerHTML=''; return; }
-  const prefix = suggestUidPrefix();
-  wrap.innerHTML = `<div class="alert alert-info" style="margin-top:10px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">
-    <span><strong>${blankIds.length} row(s) have no User ID.</strong> Auto-generate them using the project name prefix?
-    Suggested: <code>${prefix}_01</code>, <code>${prefix}_02</code>, …</span>
-    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-      <input type="text" id="uidPrefixInput" value="${escHtml(prefix)}" style="width:110px;padding:4px 8px;border:1px solid #93c5fd;border-radius:5px;font-size:12px" placeholder="Prefix">
-      <button class="btn btn-primary btn-sm" onclick="generateUserIds()">Generate IDs</button>
-    </div>
-  </div>`;
-}
 
 function generateUserIds() {
   const prefix = (document.getElementById('uidPrefixInput')?.value || suggestUidPrefix()).trim() || 'USER';
@@ -1193,7 +1260,7 @@ function renderSchGrid() {
   const errs = validateSchRows();
   const storeIds = S.sm.rows.map(r=>r.storeId).filter(Boolean);
   const userIds = S.um.rows.map(r=>r.userId).filter(Boolean);
-  if (!S.sch.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
+  if (!S.sch.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; renderSchCoverage(); return; }
   let html = `<table class="grid"><thead><tr><th>#</th><th>Store ID *</th><th>Store Name</th><th>User ID *</th><th>User Name</th><th>Start Date</th><th>Frequency *</th><th>End Date</th><th>Custom Interval</th><th></th></tr></thead><tbody>`;
   S.sch.rows.forEach((row,idx) => {
     const e=errs[row.id]||{};
@@ -1223,6 +1290,7 @@ function renderSchGrid() {
   });
   html += '</tbody></table>';
   c.innerHTML = html;
+  renderSchCoverage();
 }
 
 function validateSchRows() {
@@ -1243,6 +1311,146 @@ function validateSchRows() {
     if (Object.keys(e).length) errors[row.id]=e;
   });
   return errors;
+}
+
+function renderSchCoverage() {
+  const wrap = document.getElementById('schCoverageWrap');
+  if (!wrap) return;
+  const smIds = new Set(S.sm.rows.map(r=>r.storeId).filter(Boolean));
+  const schIds = new Set(S.sch.rows.map(r=>r.storeId).filter(Boolean));
+  if (!smIds.size && !schIds.size) { wrap.innerHTML=''; return; }
+  if (!smIds.size) {
+    wrap.innerHTML=`<div class="alert alert-info">Add stores in Store Master first — they'll appear as options here.</div>`;
+    return;
+  }
+  const orphans = [...schIds].filter(id=>!smIds.has(id));
+  const uncovered = [...smIds].filter(id=>!schIds.has(id));
+  let html='';
+  if (orphans.length) {
+    html+=`<div style="background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;border-radius:6px;padding:9px 13px;margin-bottom:6px;font-size:12.5px">⛔ <strong>${orphans.length} store(s) in Schedule are not in Store Master</strong> — remove them or add to Store Master first.<br><span style="font-size:11.5px">${orphans.join(', ')}</span></div>`;
+  }
+  if (!schIds.size) {
+    html+=`<div class="alert alert-info" style="margin:0">Schedule not filled yet. Use auto-fill above or upload a mapping file.</div>`;
+  } else if (uncovered.length) {
+    html+=`<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:6px;padding:9px 13px;font-size:12.5px">⚠️ <strong>${uncovered.length} of ${smIds.size} store(s) have no schedule yet.</strong> <span style="color:#78350f;font-size:11.5px">${uncovered.slice(0,8).join(', ')}${uncovered.length>8?' … and '+(uncovered.length-8)+' more':''}</span></div>`;
+  } else {
+    html+=`<div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;border-radius:6px;padding:9px 13px;font-size:12.5px">✅ <strong>All ${smIds.size} stores are scheduled.</strong></div>`;
+  }
+  wrap.innerHTML=html;
+}
+
+function showSchAutoFill() {
+  const panel = document.getElementById('schAutoFillPanel');
+  if (!panel) return;
+  const stores = S.sm.rows.filter(r=>r.storeId.trim());
+  const users  = S.um.rows.filter(r=>r.userId.trim());
+  if (!stores.length) {
+    panel.innerHTML=`<div class="alert alert-info" style="margin:0;display:flex;align-items:center;gap:10px">No stores in Store Master yet.<button class="btn btn-secondary btn-sm" onclick="switchTab('t2')" style="margin-left:8px">Go to Store Master →</button></div>`;
+    return;
+  }
+  if (!users.length) {
+    panel.innerHTML=`<div class="alert alert-info" style="margin:0">No users in User Master yet. Add users in the User Master tab first, then come back here.</div>`;
+    return;
+  }
+  const freqOpts=['weekly','daily','monthly','custom'].map(f=>`<option value="${f}">${f}</option>`).join('');
+  const userOpts=users.map(u=>`<option value="${escHtml(u.userId)}">${escHtml(u.userId)}${u.userName?' · '+escHtml(u.userName):''}</option>`).join('');
+  if (users.length===1) {
+    panel.innerHTML=`<div style="font-size:12.5px;color:#374151;margin-bottom:10px"><strong>${stores.length} stores</strong> → <strong>${escHtml(users[0].userId)}</strong>${users[0].userName?' ('+escHtml(users[0].userName)+')':''}.</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="font-size:12px;color:#6b7280">Default frequency:</label>
+        <select id="schAfFreq" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">${freqOpts}</select>
+        <button class="btn btn-primary btn-sm" onclick="applySchAutoFill()">Fill all ${stores.length} stores →</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetSchAutoFillPanel()">Cancel</button>
+      </div>`;
+  } else {
+    window._schAssignRows=stores.map(s=>({storeId:s.storeId,storeName:s.storeName,slots:[{id:uid(),userId:users[0].userId}]}));
+    panel.innerHTML=`<div style="font-size:12.5px;color:#374151;margin-bottom:8px">Assign users to <strong>${stores.length} stores</strong>. Click <strong>+ User</strong> to assign a second user to the same store.</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+        <label style="font-size:12px;color:#6b7280">Default frequency:</label>
+        <select id="schAfFreq" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">${freqOpts}</select>
+      </div>
+      <div style="max-height:280px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:10px">
+        <table class="grid"><thead><tr><th>Store ID</th><th>Store Name</th><th>Assigned User</th><th></th></tr></thead>
+        <tbody id="schAfBody"></tbody></table>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="applySchAutoFill()">Apply Auto-fill →</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetSchAutoFillPanel()">Cancel</button>
+      </div>`;
+    renderSchAfTable(userOpts);
+  }
+}
+
+function renderSchAfTable(userOpts) {
+  const tbody=document.getElementById('schAfBody');
+  if (!tbody||!window._schAssignRows) return;
+  let html='';
+  window._schAssignRows.forEach((store,si)=>{
+    store.slots.forEach((slot,sli)=>{
+      const isFirst=sli===0;
+      html+=`<tr>`;
+      if (isFirst) {
+        const span=store.slots.length>1?` rowspan="${store.slots.length}"`:'';
+        html+=`<td${span} style="vertical-align:top">${escHtml(store.storeId)}</td>`;
+        html+=`<td${span} style="vertical-align:top;color:#6b7280">${escHtml(store.storeName||'')}</td>`;
+      }
+      const selOpts=userOpts.replace(new RegExp(`value="${escHtml(slot.userId)}"`), `value="${escHtml(slot.userId)}" selected`);
+      html+=`<td><select style="width:100%;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px" onchange="schAfUpdateSlot(${si},${sli},this.value)">${selOpts}</select></td>`;
+      html+=`<td style="white-space:nowrap">`;
+      if (isFirst) html+=`<button class="btn btn-secondary btn-sm" onclick="schAfAddSlot(${si})" style="margin-right:4px">+ User</button>`;
+      if (!isFirst) html+=`<button class="btn btn-danger btn-sm" onclick="schAfRemoveSlot(${si},${sli})">×</button>`;
+      html+=`</td></tr>`;
+    });
+  });
+  tbody.innerHTML=html;
+}
+
+function schAfUpdateSlot(si,sli,val){window._schAssignRows[si].slots[sli].userId=val;}
+
+function schAfAddSlot(si){
+  const users=S.um.rows.filter(r=>r.userId.trim());
+  window._schAssignRows[si].slots.push({id:uid(),userId:users[0]?.userId||''});
+  const userOpts=users.map(u=>`<option value="${escHtml(u.userId)}">${escHtml(u.userId)}${u.userName?' · '+escHtml(u.userName):''}</option>`).join('');
+  renderSchAfTable(userOpts);
+}
+
+function schAfRemoveSlot(si,sli){
+  window._schAssignRows[si].slots.splice(sli,1);
+  const users=S.um.rows.filter(r=>r.userId.trim());
+  const userOpts=users.map(u=>`<option value="${escHtml(u.userId)}">${escHtml(u.userId)}${u.userName?' · '+escHtml(u.userName):''}</option>`).join('');
+  renderSchAfTable(userOpts);
+}
+
+function applySchAutoFill(){
+  const freq=document.getElementById('schAfFreq')?.value||'weekly';
+  const users=S.um.rows.filter(r=>r.userId.trim());
+  const stores=S.sm.rows.filter(r=>r.storeId.trim());
+  let pairs=[];
+  if (users.length===1&&!window._schAssignRows) {
+    pairs=stores.map(s=>({storeId:s.storeId,storeName:s.storeName,userId:users[0].userId,userName:users[0].userName}));
+  } else if (window._schAssignRows) {
+    window._schAssignRows.forEach(store=>{
+      store.slots.forEach(slot=>{
+        const u=S.um.rows.find(r=>r.userId===slot.userId);
+        pairs.push({storeId:store.storeId,storeName:store.storeName,userId:slot.userId,userName:u?.userName||''});
+      });
+    });
+  }
+  if (S.sch.rows.length>0) {
+    const replace=confirm(`Schedule Master already has ${S.sch.rows.length} row(s).\n\nOK = Replace all with auto-filled rows\nCancel = Append to existing rows`);
+    if (replace) S.sch.rows=[];
+  }
+  S.sch.rows.push(...pairs.map(p=>{const r=makeRow('sch');r.storeId=p.storeId;r.storeName=p.storeName;r.userId=p.userId;r.userName=p.userName;r.frequency=freq;return r;}));
+  window._schAssignRows=null;
+  resetSchAutoFillPanel();
+  renderSchGrid();
+  updateDots();
+}
+
+function resetSchAutoFillPanel(){
+  const panel=document.getElementById('schAutoFillPanel');
+  if (panel) panel.innerHTML=`<button class="btn btn-primary btn-sm" onclick="showSchAutoFill()">Configure &amp; Auto-fill →</button>`;
+  window._schAssignRows=null;
 }
 
 // ============================================================
@@ -1704,6 +1912,18 @@ function exportUM() {
 }
 
 function exportSCH() {
+  const smIds = new Set(S.sm.rows.map(r=>r.storeId).filter(Boolean));
+  const schIds = new Set(S.sch.rows.map(r=>r.storeId).filter(Boolean));
+  const orphans = [...schIds].filter(id=>!smIds.has(id));
+  if (orphans.length) {
+    alert(`Cannot export Schedule Master: ${orphans.length} store(s) are not in Store Master.\n\n${orphans.join(', ')}\n\nFix these before exporting.`);
+    return null;
+  }
+  const uncovered = [...smIds].filter(id=>!schIds.has(id));
+  if (uncovered.length) {
+    const ok = confirm(`⚠️ ${uncovered.length} of ${smIds.size} stores have no schedule entry yet:\n\n${uncovered.slice(0,10).join(', ')}${uncovered.length>10?' …and '+(uncovered.length-10)+' more':''}\n\nDo you want to export anyway?`);
+    if (!ok) return null;
+  }
   const h = ['Store ID','User ID','Start Date','Frequency','End Date','Custom Interval','Store Name','User Name','Days of Week','Applicable Weeks','Month Start On','Month End On'];
   return toCsv([h,...S.sch.rows.map(r=>[r.storeId,r.userId,r.startDate,r.frequency,r.endDate,r.customInterval,r.storeName,r.userName,'','','',''])]);
 }
@@ -1735,7 +1955,11 @@ async function downloadAll() {
     {name:'Survey_Master.csv', fn:exportSV}
   ];
   const zip = new JSZip();
-  files.forEach(f => zip.file(f.name, f.fn()));
+  for (const f of files) {
+    const csv = f.fn();
+    if (csv === null) return; // user cancelled (e.g. SCH coverage confirmation)
+    zip.file(f.name, csv);
+  }
   const blob = await zip.generateAsync({type:'blob'});
   triggerDownload(blob, `${pName}_MDM_Files.zip`, 'application/zip', true);
 }
