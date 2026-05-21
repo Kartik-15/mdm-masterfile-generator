@@ -289,6 +289,10 @@ table.fref tr:last-child td{border-bottom:none}
       <span class="row-count" id="smRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="smGridContainer"></div></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="confirmSmData()" style="min-width:180px">✅ Confirm Store Master</button>
+      <div id="smConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
   </div>
 </div>
 
@@ -296,7 +300,10 @@ table.fref tr:last-child td{border-bottom:none}
 <div class="section" id="t3">
   <div class="sec-hdr"><h2>Beat Plan</h2><p>Define field agents and their store visit schedules. Outputs: <code>User_Master.csv</code> and <code>Schedule_Master.csv</code></p></div>
 
-  <div class="prereq"><span>⚠️</span><span><strong>Complete Store Master first.</strong> Store IDs from that tab are used in Schedule Master.</span></div>
+  <div class="alert alert-info" style="display:flex;align-items:center;gap:10px;justify-content:space-between">
+    <span><strong>Store IDs needed for Schedule Master.</strong> Once you've added stores on the Store Master tab, they'll appear as dropdowns here automatically.</span>
+    <button class="btn btn-secondary btn-sm" onclick="switchTab('t2')" style="white-space:nowrap;flex-shrink:0">Go to Store Master →</button>
+  </div>
 
   <div class="step-guide">
     <div class="sg-title">This tab has two parts — fill them in order:</div>
@@ -340,6 +347,7 @@ table.fref tr:last-child td{border-bottom:none}
         <input type="file" id="umFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleUpload(this,'um')">
         <div id="umMapperWrap"></div>
       </div>
+      <div id="umAutoGenWrap"></div>
       <div class="grid-toolbar" style="margin-top:10px">
         <button class="btn btn-secondary btn-sm" onclick="addUmRow()">+ Add Row</button>
         <span class="row-count" id="umRowCount">0 rows</span>
@@ -1041,6 +1049,44 @@ function validateSmRows() {
   return errors;
 }
 
+function confirmSmData() {
+  const el = document.getElementById('smConfirmResult');
+  if (!S.sm.rows.length) {
+    el.innerHTML = '<span style="color:#ef4444">⛔ No stores added yet. Upload a file or add rows manually.</span>';
+    return;
+  }
+  const errors = validateSmRows();
+  const errCount = Object.keys(errors).length;
+  const issues = [];
+
+  // Collect unique error messages
+  const msgs = {};
+  Object.values(errors).forEach(e => Object.values(e).forEach(m => { if(m) msgs[m]=(msgs[m]||0)+1; }));
+  Object.entries(msgs).forEach(([msg, cnt]) => issues.push(`${msg}${cnt>1?' ('+cnt+' rows)':''}`));
+
+  // Check custom column names
+  const namedCols = S.sm.customHeaders.filter(h=>h.trim());
+  const unnamedWithData = S.sm.customHeaders.reduce((acc,h,i)=>{
+    if(!h.trim() && S.sm.rows.some(r=>r['c'+(i+1)]&&r['c'+(i+1)].trim())) acc++;
+    return acc;
+  },0);
+  if(unnamedWithData) issues.push(`${unnamedWithData} custom column(s) have data but no header name`);
+
+  const dCount = S.sm.rows.filter(r=>r.storeType==='Digital'&&r.testShop!=='1').length;
+  const mCount = S.sm.rows.filter(r=>r.storeType==='Manual'&&r.testShop!=='1').length;
+  const tCount = S.sm.rows.filter(r=>r.testShop==='1').length;
+  const total = S.sm.rows.length;
+
+  if (issues.length) {
+    el.innerHTML = `<span style="color:#dc2626">⛔ <strong>${errCount} row(s) have errors — fix them before proceeding.</strong></span>
+      <ul style="margin:6px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  } else {
+    el.innerHTML = `<span style="color:#16a34a">✅ <strong>Store Master confirmed!</strong> ${total} store(s) ready.
+      &nbsp;·&nbsp; Digital: ${dCount} &nbsp;·&nbsp; Manual: ${mCount} &nbsp;·&nbsp; Test: ${tCount}</span>`;
+    updateDots();
+  }
+}
+
 // ============================================================
 // SECTION 3: BEAT PLAN
 // ============================================================
@@ -1053,7 +1099,7 @@ function renderUmGrid() {
   if (!c) return;
   document.getElementById('umRowCount').textContent = S.um.rows.length + ' rows';
   const errs = validateUmRows();
-  if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
+  if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; checkAndShowAutoGen(); return; }
   let html = `<table class="grid"><thead><tr><th>#</th><th>User ID *</th><th>User Name *</th><th>Password *</th><th>Monthly Working Days</th><th></th></tr></thead><tbody>`;
   S.um.rows.forEach((row,idx) => {
     const e = errs[row.id]||{};
@@ -1068,6 +1114,7 @@ function renderUmGrid() {
   });
   html += '</tbody></table>';
   c.innerHTML = html;
+  checkAndShowAutoGen();
 }
 
 function validateUmRows() {
@@ -1083,6 +1130,48 @@ function validateUmRows() {
     if (Object.keys(e).length) errors[row.id]=e;
   });
   return errors;
+}
+
+function suggestUidPrefix() {
+  const name = (S.projectName || '').trim();
+  if (!name) return 'USER';
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0,6).toUpperCase();
+  // Take first 3 chars of first word + first 2 of last word
+  return (words[0].slice(0,3) + words[words.length-1].slice(0,2)).toUpperCase();
+}
+
+function checkAndShowAutoGen() {
+  const wrap = document.getElementById('umAutoGenWrap');
+  if (!wrap) return;
+  const blankIds = S.um.rows.filter(r => !r.userId.trim());
+  if (!blankIds.length) { wrap.innerHTML=''; return; }
+  const prefix = suggestUidPrefix();
+  wrap.innerHTML = `<div class="alert alert-info" style="margin-top:10px;display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap">
+    <span><strong>${blankIds.length} row(s) have no User ID.</strong> Auto-generate them using the project name prefix?
+    Suggested: <code>${prefix}_01</code>, <code>${prefix}_02</code>, …</span>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <input type="text" id="uidPrefixInput" value="${escHtml(prefix)}" style="width:110px;padding:4px 8px;border:1px solid #93c5fd;border-radius:5px;font-size:12px" placeholder="Prefix">
+      <button class="btn btn-primary btn-sm" onclick="generateUserIds()">Generate IDs</button>
+    </div>
+  </div>`;
+}
+
+function generateUserIds() {
+  const prefix = (document.getElementById('uidPrefixInput')?.value || suggestUidPrefix()).trim() || 'USER';
+  // Find the next available number for this prefix
+  const existing = new Set(S.um.rows.map(r=>r.userId));
+  let counter = 1;
+  S.um.rows.forEach(row => {
+    if (!row.userId.trim()) {
+      let candidate;
+      do { candidate = `${prefix}_${String(counter).padStart(2,'0')}`; counter++; } while (existing.has(candidate));
+      row.userId = candidate;
+      existing.add(candidate);
+    }
+  });
+  renderUmGrid();
+  updateDots();
 }
 
 function addSchRow() { S.sch.rows.push(makeRow('sch')); renderSchGrid(); updateDots(); }
