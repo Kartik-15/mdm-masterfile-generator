@@ -455,16 +455,13 @@ table.fref tr:last-child td{border-bottom:none}
 
 <!-- ===================== SECTION 4: SKU ASSORTMENT ===================== -->
 <div class="section" id="t4">
-  <div class="sec-hdr"><h2>SKU Assortment</h2><p>Upload the product list (SKUs) the app should detect in stores. Output: <code>SKU_Assortment.csv</code></p></div>
+  <div class="sec-hdr"><h2>SKU Assortment</h2><p>Define the full SKU universe first, then build assortments as subsets. Output: <code>SKU_Assortment.csv</code></p></div>
 
   <div class="step-guide">
-    <div class="sg-title">What to do on this tab:</div>
+    <div class="sg-title">Two-phase workflow:</div>
     <ol>
-      <li>Choose whether the project uses named assortments, then (if yes) pick Category or Hierarchy mode.</li>
-      <li><strong>Upload Self SKUs</strong> (own brand) and <strong>Competitor SKUs</strong> separately — defaults are set automatically.</li>
-      <li>Use the <strong>Reserved Classes</strong> card to add system classes like <code>Others</code> (mandatory), <code>Shelf</code>, <code>OutofStock</code>, etc.</li>
-      <li>SOS defaults to <code>1</code> for all SKUs. Regular OSA defaults to <code>1</code> for Self, <code>0</code> for Competitor and Reserved classes.</li>
-      <li>Reserved classes must never have Regular OSA = 1 — the tool will block export if this is set.</li>
+      <li><strong>Phase 1 — SKU Universe:</strong> Upload ALL Self SKUs and Competitor SKUs once. These define the flag defaults for the entire project. Select reserved classes (Others is mandatory).</li>
+      <li><strong>Phase 2 — Assortments:</strong> Each assortment is a subset of the universe (typically Self SKUs for a specific store type). Upload just the SKU names — the tool auto-fills flags from the universe and auto-adds competitors and reserved classes for matching categories.</li>
     </ol>
   </div>
 
@@ -477,97 +474,134 @@ table.fref tr:last-child td{border-bottom:none}
       <table class="fref">
         <thead><tr><th>Column</th><th>Status</th><th>What to enter</th></tr></thead>
         <tbody>
-          <tr><td><strong>SKU Type</strong></td><td><span class="req-badge">Required</span></td><td><code>Self</code> = own brand SKU &nbsp;·&nbsp; <code>Competitor</code> = competitor brand SKU &nbsp;·&nbsp; <code>Reserved</code> = system class (Others, Shelf, etc.)</td></tr>
           <tr><td><strong>SKU Name</strong></td><td><span class="req-badge">Required</span></td><td>Product name as it appears in the system. E.g. <code>Maggi Noodles 70g</code></td></tr>
-          <tr><td><strong>Category Name</strong></td><td><span class="req-badge">Required</span></td><td>Product category this SKU belongs to. E.g. <code>Noodles</code></td></tr>
-          <tr><td><strong>Assortment Name</strong></td><td><span class="cond-badge">If assortments enabled</span></td><td>Name for this group of SKUs. You enter this after uploading each file. E.g. <code>Modern Trade Assortment</code></td></tr>
-          <tr><td><strong>Core Flag</strong></td><td><span class="opt-badge">Optional</span></td><td><code>1</code> = must-stock SKU &nbsp;·&nbsp; <code>0</code> = not core</td></tr>
-          <tr><td><strong>NPD Flag</strong></td><td><span class="opt-badge">Optional</span></td><td><code>1</code> = new product &nbsp;·&nbsp; <code>0</code> = existing</td></tr>
-          <tr><td><strong>Regular OSA</strong></td><td><span class="req-badge">Required</span></td><td>Default <code>1</code> for Self, <code>0</code> for Competitor/Reserved. <strong>Reserved classes must always be 0.</strong></td></tr>
+          <tr><td><strong>Category Name</strong></td><td><span class="req-badge">Required</span></td><td>Product category. E.g. <code>Noodles</code></td></tr>
+          <tr><td><strong>Assortment Name</strong></td><td><span class="cond-badge">If assortments enabled</span></td><td>Auto-assigned when building assortments — no need to include in your file.</td></tr>
+          <tr><td><strong>Regular OSA</strong></td><td><span class="req-badge">Required</span></td><td>Set automatically from universe defaults: <code>1</code> for Self, <code>0</code> for Competitor/Reserved (unless competition OSA tracking is on).</td></tr>
           <tr><td><strong>SOS</strong></td><td><span class="req-badge">Required</span></td><td>Default <code>1</code> for all SKUs.</td></tr>
+          <tr><td><strong>Core / NPD Flag</strong></td><td><span class="opt-badge">Optional</span></td><td>Set in the universe; carried through to all assortments automatically.</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
+  <!-- ── PHASE 1: SKU UNIVERSE ── -->
+  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:12.5px;font-weight:700;color:#1e40af">
+    Phase 1 — SKU Universe
+  </div>
+
+  <!-- Competition OSA toggle -->
   <div class="card">
-    <div class="card-title"><span class="card-title-left">Does this project use named assortments?</span></div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">An assortment is a named product list assigned to specific stores. If all stores should see the same SKUs, choose No.</p>
+    <div class="card-title"><span class="card-title-left">Does the client want to track competitor products at class level (OSA)?</span></div>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">This sets the default Regular OSA for all competitor SKUs in the universe.</p>
     <div class="radio-group">
-      <div class="radio-opt" id="assortmentOpt-no" onclick="setSkuAssortment(false)">No — all stores see all SKUs</div>
-      <div class="radio-opt" id="assortmentOpt-yes" onclick="setSkuAssortment(true)">Yes — stores are assigned to specific assortments</div>
+      <div class="radio-opt" id="trackComp-no" onclick="setTrackCompOsa(false)">No — SoS only for competitors (OSA = 0)</div>
+      <div class="radio-opt" id="trackComp-yes" onclick="setTrackCompOsa(true)">Yes — track OSA for competitors too (OSA = 1)</div>
     </div>
-    <div id="skuAssortmentHint"></div>
+    <div id="trackCompHint" style="margin-top:8px"></div>
   </div>
 
-  <div class="card" id="skuModeCard" style="display:none">
-    <div class="card-title"><span class="card-title-left">Assortment Mode — pick one</span></div>
-    <div class="radio-group">
-      <div class="radio-opt active" id="skuMode-category" onclick="setSkuMode('category')">Category Level</div>
-      <div class="radio-opt" id="skuMode-hierarchy" onclick="setSkuMode('hierarchy')">Hierarchy Level</div>
-    </div>
-    <div id="skuModeDesc" class="alert alert-info">
-      <b>Category Level (most common):</b> Each assortment has its own name — you assign this name when uploading each file. Use this when different stores should see different product lists.
-    </div>
-  </div>
-
-  <!-- Self + Competitor upload cards -->
+  <!-- Self + Competitor universe upload -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-
     <div class="card" style="margin-bottom:0;border-top:3px solid #16a34a">
       <div class="card-title">
-        <span class="card-title-left" style="color:#16a34a">🟢 Self SKUs (Own Brand)</span>
+        <span class="card-title-left" style="color:#16a34a">🟢 Self SKUs — Universe</span>
         <span id="skuSelfCount" class="tag tag-green">0 SKUs</span>
       </div>
       <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Regular OSA = <strong>1</strong>, SOS = <strong>1</strong> auto-set.</p>
       <div class="upload-zone" style="padding:16px" onclick="document.getElementById('skuFileSelf').click()">
-        <div class="uz-icon">📄</div>
-        <strong>Upload Self SKU list</strong>
-        <p>CSV or Excel</p>
+        <div class="uz-icon">📄</div><strong>Upload Self SKU list</strong><p>CSV or Excel</p>
       </div>
       <input type="file" id="skuFileSelf" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSkuUpload(this,'self')" multiple>
       <div id="skuUploadsSelf" style="margin-top:8px"></div>
-      <div style="margin-top:8px"><button class="btn btn-secondary btn-sm" onclick="addSkuRowTyped('self')">+ Add Self SKU</button></div>
+      <div style="margin-top:8px"><button class="btn btn-secondary btn-sm" onclick="addUniverseRow('self')">+ Add Self SKU</button></div>
     </div>
-
     <div class="card" style="margin-bottom:0;border-top:3px solid #dc2626">
       <div class="card-title">
-        <span class="card-title-left" style="color:#dc2626">🔴 Competitor SKUs</span>
+        <span class="card-title-left" style="color:#dc2626">🔴 Competitor SKUs — Universe</span>
         <span id="skuCompCount" class="tag tag-red">0 SKUs</span>
       </div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Regular OSA = <strong>0</strong>, SOS = <strong>1</strong> auto-set.</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px" id="compOsaHint">Regular OSA = <strong>0</strong>, SOS = <strong>1</strong> auto-set.</p>
       <div class="upload-zone" style="padding:16px" onclick="document.getElementById('skuFileComp').click()">
-        <div class="uz-icon">📄</div>
-        <strong>Upload Competitor SKU list</strong>
-        <p>CSV or Excel</p>
+        <div class="uz-icon">📄</div><strong>Upload Competitor SKU list</strong><p>CSV or Excel</p>
       </div>
       <input type="file" id="skuFileComp" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleSkuUpload(this,'competitor')" multiple>
       <div id="skuUploadsComp" style="margin-top:8px"></div>
-      <div style="margin-top:8px"><button class="btn btn-secondary btn-sm" onclick="addSkuRowTyped('competitor')">+ Add Competitor SKU</button></div>
+      <div style="margin-top:8px"><button class="btn btn-secondary btn-sm" onclick="addUniverseRow('competitor')">+ Add Competitor SKU</button></div>
     </div>
-
   </div>
 
   <!-- Reserved Classes -->
   <div class="card">
     <div class="card-title"><span class="card-title-left">🔖 Reserved Class Names</span></div>
-    <p style="font-size:12.5px;color:#374151;margin-bottom:10px">System-reserved class names that must follow strict flag rules. <strong>Others is mandatory</strong> and must appear in every category. All reserved classes have Regular OSA = 0 and SOS = 1 — any other value is a blocker.</p>
+    <p style="font-size:12.5px;color:#374151;margin-bottom:10px"><strong>Others is mandatory</strong> for every category. All reserved classes are auto-added to every assortment for each category present. Regular OSA = 0 and SOS = 1 always.</p>
     <div id="reservedClassPicker"></div>
   </div>
 
+  <!-- Universe grid -->
   <div class="card">
-    <div class="card-title"><span class="card-title-left">SKU Rows <span style="font-size:11px;font-weight:400;color:#9ca3af">(all Self + Competitor + Reserved combined)</span></span></div>
+    <div class="card-title"><span class="card-title-left">SKU Universe <span style="font-size:11px;font-weight:400;color:#9ca3af">(Self + Competitor — edit flags here before building assortments)</span></span></div>
     <div class="grid-toolbar" style="flex-wrap:wrap;gap:6px">
-      <button class="btn btn-secondary btn-sm" id="delModeBtn-sku" onclick="toggleDeleteMode('sku')">🗑 Delete Rows</button>
-      <button class="btn btn-danger btn-sm" id="delSelBtn-sku" onclick="deleteSelected('sku')" style="display:none">Delete Selected</button>
-      <button class="btn btn-secondary btn-sm" id="selAllBtn-sku" onclick="selectAllInSection('sku')" style="display:none">Select All</button>
-      <span class="row-count" id="skuRowCount">0 rows</span>
+      <button class="btn btn-secondary btn-sm" id="delModeBtn-univ" onclick="toggleDeleteMode('univ')">🗑 Delete Rows</button>
+      <button class="btn btn-danger btn-sm" id="delSelBtn-univ" onclick="deleteSelected('univ')" style="display:none">Delete Selected</button>
+      <button class="btn btn-secondary btn-sm" id="selAllBtn-univ" onclick="selectAllInSection('univ')" style="display:none">Select All</button>
+      <span class="row-count" id="univRowCount">0 rows</span>
     </div>
-    <div id="skuSummaryWrap" style="margin-bottom:10px"></div>
-    <div class="grid-wrap"><div id="skuGridContainer"></div></div>
+    <div class="grid-wrap"><div id="univGridContainer"></div></div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="confirmSkuData()" style="min-width:200px">✅ Confirm SKU Assortment</button>
-      <div id="skuConfirmResult" style="font-size:12.5px;flex:1"></div>
+      <button class="btn btn-primary" onclick="confirmUniverseData()" style="min-width:200px">✅ Confirm SKU Universe</button>
+      <div id="univConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
+  </div>
+
+  <!-- ── PHASE 2: ASSORTMENTS ── -->
+  <div id="skuAssortmentPhase" style="display:none">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:12.5px;font-weight:700;color:#15803d">
+      Phase 2 — Assortments
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="card-title-left">Does this project use named assortments?</span></div>
+      <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">An assortment is a named product list assigned to specific stores. If all stores see all SKUs, choose No.</p>
+      <div class="radio-group">
+        <div class="radio-opt" id="assortmentOpt-no" onclick="setSkuAssortment(false)">No — all stores see all SKUs</div>
+        <div class="radio-opt" id="assortmentOpt-yes" onclick="setSkuAssortment(true)">Yes — stores are assigned to specific assortments</div>
+      </div>
+    </div>
+
+    <div class="card" id="skuModeCard" style="display:none">
+      <div class="card-title"><span class="card-title-left">Assortment Mode</span></div>
+      <div class="radio-group">
+        <div class="radio-opt active" id="skuMode-category" onclick="setSkuMode('category')">Category Level</div>
+        <div class="radio-opt" id="skuMode-hierarchy" onclick="setSkuMode('hierarchy')">Hierarchy Level</div>
+      </div>
+      <div id="skuModeDesc" class="alert alert-info"><b>Category Level (most common):</b> Each assortment has its own name. Use this when different stores carry different product lists.</div>
+    </div>
+
+    <!-- Assortment builder (shown when useAssortment = true) -->
+    <div id="skuAssortmentBuilder" style="display:none">
+      <div class="alert alert-info" style="margin-bottom:14px">
+        Each assortment file should contain only the <strong>Self SKU names</strong> for that store group. Competitor SKUs and reserved classes from the universe are added automatically for each category present.
+      </div>
+      <div id="assortmentDefsList"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addAssortmentDef()" style="margin-bottom:14px">+ Add Assortment</button>
+    </div>
+
+    <!-- Final derived grid -->
+    <div class="card">
+      <div class="card-title"><span class="card-title-left">SKU Assortment Output <span style="font-size:11px;font-weight:400;color:#9ca3af">(auto-built from universe + assortments)</span></span></div>
+      <div class="grid-toolbar" style="flex-wrap:wrap;gap:6px">
+        <button class="btn btn-secondary btn-sm" id="delModeBtn-sku" onclick="toggleDeleteMode('sku')">🗑 Delete Rows</button>
+        <button class="btn btn-danger btn-sm" id="delSelBtn-sku" onclick="deleteSelected('sku')" style="display:none">Delete Selected</button>
+        <button class="btn btn-secondary btn-sm" id="selAllBtn-sku" onclick="selectAllInSection('sku')" style="display:none">Select All</button>
+        <span class="row-count" id="skuRowCount">0 rows</span>
+      </div>
+      <div id="skuSummaryWrap" style="margin-bottom:10px"></div>
+      <div class="grid-wrap"><div id="skuGridContainer"></div></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="confirmSkuData()" style="min-width:200px">✅ Confirm SKU Assortment</button>
+        <div id="skuConfirmResult" style="font-size:12.5px;flex:1"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -748,12 +782,12 @@ const uid = () => 'r' + (_id++);
 
 const S = {
   projectName: '',
-  deleteMode: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
+  deleteMode: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false, univ: false },
   confirmed: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
   sm: { rows: [], customHeaders: Array(12).fill('') },
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
-  sku: { mode: 'category', useAssortment: null, rows: [], reservedSelected: ['Others'] },
+  sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [] },
   sam: { rows: [] },
   sv: { rows: [] }
 };
@@ -766,7 +800,7 @@ function switchTab(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === id));
   if (id === 't2') { renderSmCustomColInputs(); renderSmGrid(); }
   if (id === 't3') { renderUmGrid(); renderSchGrid(); }
-  if (id === 't4') { renderReservedClassPicker(); renderSkuGrid(); }
+  if (id === 't4') { renderReservedClassPicker(); renderUniverseGrid(); if(S.sku.universeConfirmed) renderAssortmentPhase(); renderSkuGrid(); }
   if (id === 't5') { renderSamSmartAssigner(); renderSamGrid(); }
   if (id === 't6') { renderSvGrid(); }
   if (id === 't7') { renderDlGrid(); }
@@ -1671,17 +1705,276 @@ function applySchGlobalDates() {
 }
 
 // ============================================================
-// SECTION 4: SKU ASSORTMENT
+// SECTION 4: SKU ASSORTMENT — UNIVERSE + ASSORTMENT BUILDER
 // ============================================================
+
+// ── Competition OSA toggle ──
+function setTrackCompOsa(val) {
+  S.sku.trackCompOsa = val;
+  S.sku.universeRows.filter(r=>r.skuType==='competitor').forEach(r=>{ r.regularOsa = val?'1':'0'; });
+  ['no','yes'].forEach(v=>document.getElementById('trackComp-'+v)?.classList.toggle('active',(v==='yes')===val));
+  const hint=document.getElementById('compOsaHint');
+  if (hint) hint.innerHTML=`Regular OSA = <strong>${val?'1':'0'}</strong>, SOS = <strong>1</strong> auto-set.`;
+  const th=document.getElementById('trackCompHint');
+  if (th) th.innerHTML = val
+    ? `<div class="alert alert-info" style="margin-top:0">Competitor SKUs will be included in OSA calculations. You can still manually override individual rows in the universe grid below.</div>`
+    : '';
+  resetConfirm('sku'); renderUniverseGrid(); buildRows();
+}
+
+// ── Universe row management ──
+function addUniverseRow(skuTypeCtx) {
+  const row = makeRow('sku');
+  row.skuType = skuTypeCtx;
+  row.sos = '1';
+  row.regularOsa = (skuTypeCtx==='self') ? '1' : (S.sku.trackCompOsa ? '1' : '0');
+  S.sku.universeRows.push(row);
+  S.sku.universeConfirmed = false;
+  resetConfirm('sku');
+  renderUniverseGrid(); buildRows(); updateDots();
+}
+
+function updateUniverseRow(id, key, val) {
+  const r = S.sku.universeRows.find(r=>r.id===id);
+  if (r) { r[key]=val; S.sku.universeConfirmed=false; resetConfirm('sku'); renderUniverseGrid(); buildRows(); }
+}
+
+function renderUniverseGrid() {
+  const c = document.getElementById('univGridContainer');
+  if (!c) return;
+  const rows = S.sku.universeRows;
+  const selfCnt = rows.filter(r=>r.skuType==='self').length;
+  const compCnt = rows.filter(r=>r.skuType==='competitor').length;
+  const el=document.getElementById('univRowCount');
+  if (el) el.textContent = rows.length+' rows · '+selfCnt+' Self · '+compCnt+' Competitor';
+  const sb=document.getElementById('skuSelfCount'); if(sb) sb.textContent=selfCnt+' SKU'+(selfCnt!==1?'s':'');
+  const cb=document.getElementById('skuCompCount'); if(cb) cb.textContent=compCnt+' SKU'+(compCnt!==1?'s':'');
+  if (!rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Upload a file or add rows manually.</p>'; return; }
+  const delMode = S.deleteMode.univ;
+  const errs = validateUniverseRows();
+  let html=`<table class="grid"><thead><tr>
+    ${delMode?`<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll('#univGridContainer input[type=checkbox][data-id]').forEach(cb=>cb.checked=this.checked)"></th>`:''}
+    <th>#</th><th>Type</th><th>SKU Name *</th><th>Category Name *</th><th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th>
+  </tr></thead><tbody>`;
+  rows.forEach((row,idx) => {
+    const e=errs[row.id]||{};
+    const tb=row.skuType==='self'?`<span class="tag tag-green" style="font-size:10.5px">Self</span>`:`<span class="tag tag-red" style="font-size:10.5px">Competitor</span>`;
+    html+=`<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
+      <td class="rn">${idx+1}</td>
+      <td style="text-align:center">${tb}</td>
+      <td class="${e.skuName?'err':''}"><input type="text" value="${escHtml(row.skuName)}" onchange="updateUniverseRow('${row.id}','skuName',this.value)"></td>
+      <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateUniverseRow('${row.id}','categoryName',this.value)"></td>
+      ${flagCell(row,'coreFlag',e)} ${flagCell(row,'npdFlag',e)}
+      <td class="${e.regularOsa?'err':''}"><select onchange="updateUniverseRow('${row.id}','regularOsa',this.value)">
+        <option value="" ${row.regularOsa===''?'selected':''}>—</option>
+        <option value="1" ${row.regularOsa==='1'?'selected':''}>1</option>
+        <option value="0" ${row.regularOsa==='0'?'selected':''}>0</option>
+      </select></td>
+      <td><select onchange="updateUniverseRow('${row.id}','sos',this.value)">
+        <option value="" ${row.sos===''?'selected':''}>—</option>
+        <option value="1" ${row.sos==='1'?'selected':''}>1</option>
+        <option value="0" ${row.sos==='0'?'selected':''}>0</option>
+      </select></td>
+    </tr>${Object.values(e).length?`<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+  });
+  html+='</tbody></table>';
+  c.innerHTML=html;
+}
+
+function validateUniverseRows() {
+  const errors={};
+  S.sku.universeRows.forEach(row=>{
+    const e={};
+    if (!row.skuName.trim()) e.skuName='SKU Name required';
+    if (!row.categoryName.trim()) e.categoryName='Category Name required';
+    if (row.regularOsa!==''&&row.regularOsa!=='0'&&row.regularOsa!=='1') e.regularOsa='Must be 0, 1, or blank';
+    if (Object.keys(e).length) errors[row.id]=e;
+  });
+  return errors;
+}
+
+function confirmUniverseData() {
+  const el=document.getElementById('univConfirmResult');
+  if (!S.sku.universeRows.length){el.innerHTML='<span style="color:#ef4444">⛔ No SKUs in universe yet. Upload files or add rows manually.</span>';return;}
+  const errs=validateUniverseRows(); const cnt=Object.keys(errs).length;
+  if (cnt){
+    el.innerHTML=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors — fix before proceeding.</strong></span>`;
+    return;
+  }
+  if (!S.sku.reservedSelected.includes('Others')){el.innerHTML='<span style="color:#ef4444">⛔ "Others" reserved class is mandatory.</span>';return;}
+  S.sku.universeConfirmed=true;
+  buildRows();
+  const selfCnt=S.sku.universeRows.filter(r=>r.skuType==='self').length;
+  const compCnt=S.sku.universeRows.filter(r=>r.skuType==='competitor').length;
+  el.innerHTML=`<span style="color:#16a34a">✅ <strong>Universe confirmed!</strong> ${selfCnt} Self · ${compCnt} Competitor · ${S.sku.reservedSelected.length} reserved class(es). Proceed to Phase 2 below.</span>`;
+  document.getElementById('skuAssortmentPhase').style.display='';
+  renderSkuGrid();
+}
+
+// ── buildRows: derives S.sku.rows from universe + assortmentDefs ──
+function buildRows() {
+  S.sku.rows=[];
+  if (!S.sku.universeConfirmed) { syncReservedRows(); renderSkuGrid(); return; }
+
+  if (!S.sku.useAssortment) {
+    // No assortments — universe rows are the output directly
+    S.sku.universeRows.forEach(r=>S.sku.rows.push({...r, id:uid()}));
+    syncReservedRows();
+    renderSkuGrid(); updateDots(); return;
+  }
+
+  // With assortments — expand each assortment def
+  const competitors = S.sku.universeRows.filter(r=>r.skuType==='competitor');
+  const assKey = S.sku.mode==='category'?'assortmentName':'storeMetaCol';
+
+  S.sku.assortmentDefs.forEach(af=>{
+    if (!af.assortmentName) return;
+    const selfRows=[];
+    af.skuNames.forEach(name=>{
+      const u=S.sku.universeRows.find(r=>r.skuType==='self'&&r.skuName.trim()===name.trim());
+      if (u) { const nr={...u,id:uid()}; nr[assKey]=af.assortmentName; selfRows.push(nr); }
+    });
+    const cats=new Set(selfRows.map(r=>r.categoryName.trim()).filter(Boolean));
+    S.sku.rows.push(...selfRows);
+    // Auto-add competitors for categories in this assortment
+    competitors.forEach(comp=>{
+      const cat=comp.categoryName.trim();
+      if (!cat||cats.has(cat)) { const nr={...comp,id:uid()}; nr[assKey]=af.assortmentName; S.sku.rows.push(nr); }
+    });
+  });
+  syncReservedRows();
+  renderSkuGrid(); updateDots();
+}
+
+// ── Assortment definitions ──
+function addAssortmentDef() {
+  const id='adef_'+uid();
+  S.sku.assortmentDefs.push({id, assortmentName:'', skuNames:[]});
+  renderAssortmentDefs();
+}
+
+function removeAssortmentDef(id) {
+  S.sku.assortmentDefs=S.sku.assortmentDefs.filter(a=>a.id!==id);
+  resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+}
+
+function updateAssortmentName(id, val) {
+  const a=S.sku.assortmentDefs.find(a=>a.id===id);
+  if (a) { a.assortmentName=val; resetConfirm('sku'); buildRows(); }
+}
+
+function renderAssortmentDefs() {
+  const c=document.getElementById('assortmentDefsList'); if(!c) return;
+  if (!S.sku.assortmentDefs.length) { c.innerHTML=''; return; }
+  c.innerHTML=S.sku.assortmentDefs.map(af=>`
+    <div class="card" style="margin-bottom:10px;border-top:3px solid #2563eb">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div class="fld-group" style="margin-bottom:0;flex:1;min-width:200px">
+          <label class="fld-label">Assortment Name *</label>
+          <input type="text" value="${escHtml(af.assortmentName)}" placeholder="e.g. Modern Trade" style="width:100%" oninput="updateAssortmentName('${af.id}',this.value)">
+        </div>
+        <button class="btn btn-danger btn-sm" style="align-self:flex-end" onclick="removeAssortmentDef('${af.id}')">Remove</button>
+      </div>
+      <div class="card" style="padding:12px;background:#f9fafb">
+        <p style="font-size:12px;color:#374151;margin-bottom:8px"><strong>Upload Self SKU list for this assortment</strong> — just the SKU names (the universe flags + competitors + reserved classes are added automatically)</p>
+        <div class="upload-zone" style="padding:14px" onclick="document.getElementById('afile_${af.id}').click()">
+          <strong>Upload assortment SKU list (CSV or Excel)</strong><p style="font-size:11.5px;margin-top:3px">File needs at minimum a SKU Name column</p>
+        </div>
+        <input type="file" id="afile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleAssortmentUpload(this,'${af.id}')" multiple>
+        <div id="afile_uploads_${af.id}" style="margin-top:8px"></div>
+      </div>
+      ${af.skuNames.length?`<div style="margin-top:8px;font-size:12px;color:#374151"><strong>${af.skuNames.length} Self SKU name(s)</strong> loaded. <button class="btn btn-secondary btn-sm" onclick="clearAssortmentSkus('${af.id}')">Clear</button></div>`:''}
+    </div>`).join('');
+}
+
+function renderAssortmentPhase() {
+  const phase=document.getElementById('skuAssortmentPhase');
+  if (phase) phase.style.display = S.sku.universeConfirmed ? '' : 'none';
+  if (S.sku.useAssortment!==null) {
+    document.getElementById('assortmentOpt-no')?.classList.toggle('active', S.sku.useAssortment===false);
+    document.getElementById('assortmentOpt-yes')?.classList.toggle('active', S.sku.useAssortment===true);
+    const modeCard=document.getElementById('skuModeCard');
+    if (modeCard) modeCard.style.display = S.sku.useAssortment ? '' : 'none';
+    const builder=document.getElementById('skuAssortmentBuilder');
+    if (builder) builder.style.display = S.sku.useAssortment ? '' : 'none';
+    if (S.sku.useAssortment) renderAssortmentDefs();
+  }
+  if (S.sku.trackCompOsa!==null) {
+    ['no','yes'].forEach(v=>document.getElementById('trackComp-'+v)?.classList.toggle('active',(v==='yes')===S.sku.trackCompOsa));
+    const hint=document.getElementById('compOsaHint');
+    if (hint) hint.innerHTML=`Regular OSA = <strong>${S.sku.trackCompOsa?'1':'0'}</strong>, SOS = <strong>1</strong> auto-set.`;
+  }
+}
+
+function clearAssortmentSkus(id) {
+  const a=S.sku.assortmentDefs.find(a=>a.id===id); if(!a) return;
+  a.skuNames=[]; resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+}
+
+function handleAssortmentUpload(input, defId) {
+  Array.from(input.files).forEach(file=>{
+    const ext=file.name.split('.').pop().toLowerCase();
+    const processData=(data)=>{
+      const fileKey='_afile_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      window[fileKey]={fileName:file.name, data};
+      const fields=data.length?Object.keys(data[0]):[];
+      const listId='afile_uploads_'+defId;
+      const list=document.getElementById(listId); if(!list) return;
+      const itemId='aitem_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const div=document.createElement('div'); div.id=itemId; div.className='sku-upload-item';
+      div.innerHTML=`<div class="sku-upload-header">
+        <span class="sku-file-name">📄 ${escHtml(file.name)}</span>
+        <span style="font-size:11px;color:#9ca3af">${data.length} rows</span>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('${itemId}').remove()">Remove</button>
+      </div>
+      <div class="mapper-wrap" style="margin-top:8px">
+        <div class="mapper-title">Map the SKU Name column</div>
+        <table class="mapper"><thead><tr><th>Your column</th><th>→ Maps to</th></tr></thead><tbody>
+        ${fields.map(f=>{
+          const fl=f.toLowerCase().replace(/[^a-z0-9]/g,'');
+          const guessed=fl.includes('sku')||fl.includes('name')||fl.includes('product')?'skuName':'';
+          return `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
+            <option value="">— skip —</option>
+            <option value="skuName" ${guessed==='skuName'?'selected':''}>* SKU Name</option>
+          </select></td></tr>`;
+        }).join('')}
+        </tbody></table>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="applyAssortmentMapping('${fileKey}','${defId}','${itemId}')">✓ Apply SKU Names</button>
+      </div>`;
+      list.appendChild(div);
+    };
+    if (ext==='csv') Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>processData(stripEmptyRows(r.data))});
+    else { const reader=new FileReader(); reader.onload=e=>{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];processData(stripEmptyRows(XLSX.utils.sheet_to_json(ws,{defval:''})));};reader.readAsArrayBuffer(file); }
+  });
+  input.value='';
+}
+
+function applyAssortmentMapping(fileKey, defId, itemId) {
+  const fileEntry=window[fileKey]||{}; const data=fileEntry.data||[];
+  const item=document.getElementById(itemId); if(!item) return;
+  const selects=item.querySelectorAll('select[data-src]');
+  let nameCol='';
+  selects.forEach(s=>{ if(s.value==='skuName') nameCol=s.dataset.src; });
+  if (!nameCol) { alert('Map the SKU Name column before applying.'); return; }
+  const names=[...new Set(data.map(r=>String(r[nameCol]||'').trim()).filter(Boolean))];
+  const a=S.sku.assortmentDefs.find(a=>a.id===defId); if(!a) return;
+  a.skuNames=[...new Set([...a.skuNames,...names])];
+  resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+  item.remove();
+}
+
 function setSkuMode(mode) {
   S.sku.mode = mode;
   ['category','hierarchy'].forEach(m => {
-    document.getElementById('skuMode-'+m).classList.toggle('active', m===mode);
+    document.getElementById('skuMode-'+m)?.classList.toggle('active', m===mode);
   });
   const desc = document.getElementById('skuModeDesc');
-  if (mode==='category') desc.innerHTML='<b>Category Level (most common):</b> Each assortment has its own name — you assign this name when uploading each SKU file. Use this when different stores should see different product lists.';
-  else desc.innerHTML='<b>Hierarchy Level:</b> Assortments are defined by a store attribute (e.g., "Region"). The system auto-assigns products to stores based on their region value — no manual mapping needed.';
-  renderSkuGrid();
+  if (desc) {
+    if (mode==='category') desc.innerHTML='<b>Category Level (most common):</b> Each assortment has its own name. Use this when different stores should see different product lists.';
+    else desc.innerHTML='<b>Hierarchy Level:</b> Assortments are defined by a store attribute (e.g., "Region"). The system auto-assigns products to stores based on their region value.';
+  }
+  resetConfirm('sku'); buildRows();
 }
 
 function handleSkuUpload(input, skuTypeCtx='self') {
@@ -1746,42 +2039,28 @@ function applySkuMapping(dataKey, itemId, skuTypeCtx) {
   const data = raw.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const item = document.getElementById(itemId);
   if (!item) return;
-  const assortmentVal = item.querySelector('[id$="_assortment"]')?.value || '';
   const selects = item.querySelectorAll('select[data-src]');
   const mapping = {};
   selects.forEach(s => { if (s.value) mapping[s.dataset.src] = s.value; });
+  const compOsa = S.sku.trackCompOsa ? '1' : '0';
   const rows = data.map(src => {
     const row = makeRow('sku');
     Object.entries(mapping).forEach(([s,t]) => { if (src[s]!==undefined) row[t]=String(src[s]); });
     row.skuType = typeCtx;
-    // Apply defaults for blank flag values
     if (!row.sos.trim()) row.sos = '1';
-    if (!row.regularOsa.trim()) row.regularOsa = typeCtx === 'self' ? '1' : '0';
-    if (S.sku.useAssortment) {
-      if (S.sku.mode==='category') row.assortmentName = assortmentVal;
-      else row.storeMetaCol = assortmentVal;
-    }
+    if (!row.regularOsa.trim()) row.regularOsa = typeCtx==='self' ? '1' : compOsa;
     return row;
   });
-  S.sku.rows.push(...rows);
+  // Universe upload — push to universeRows
+  S.sku.universeRows.push(...rows);
+  S.sku.universeConfirmed = false;
   resetConfirm('sku');
-  renderSkuGrid();
-  updateDots();
+  renderUniverseGrid(); buildRows(); updateDots();
   item.remove();
 }
 
-function addSkuRow() { addSkuRowTyped('self'); } // legacy alias
-
-function addSkuRowTyped(skuTypeCtx) {
-  const row = makeRow('sku');
-  row.skuType = skuTypeCtx;
-  row.sos = '1';
-  row.regularOsa = skuTypeCtx === 'self' ? '1' : '0';
-  S.sku.rows.push(row);
-  resetConfirm('sku');
-  renderSkuGrid();
-  updateDots();
-}
+function addSkuRow() { addUniverseRow('self'); }
+function addSkuRowTyped(ctx) { addUniverseRow(ctx); }
 
 function toggleReservedClass(name, checked) {
   const cls = RESERVED_SKU_CLASSES.find(c=>c.name===name);
@@ -1791,13 +2070,11 @@ function toggleReservedClass(name, checked) {
     if (!S.sku.reservedSelected.includes(name)) S.sku.reservedSelected.push(name);
   } else {
     S.sku.reservedSelected = S.sku.reservedSelected.filter(n=>n!==name);
-    // Remove rows immediately; syncReservedRows will clean up the rest on next render
     S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===name));
   }
   resetConfirm('sku');
   renderReservedClassPicker();
-  renderSkuGrid(); // syncReservedRows runs inside renderSkuGrid
-  updateDots();
+  buildRows(); updateDots();
 }
 
 function renderReservedClassPicker() {
@@ -2424,7 +2701,7 @@ function loadSession(input) {
       if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
       if (S.sch.globalEndDate)   { const el=document.getElementById('schGlobalEndDate');   if(el) el.value=S.sch.globalEndDate; }
       renderSmCustomColInputs(); renderSmGrid(); renderUmGrid(); renderSchGrid();
-      renderReservedClassPicker(); renderSkuGrid(); renderSamGrid(); renderSvGrid(); renderDlGrid();
+      renderReservedClassPicker(); renderUniverseGrid(); renderAssortmentPhase(); renderSkuGrid(); renderSamGrid(); renderSvGrid(); renderDlGrid();
       updateDots();
       alert('Session loaded successfully.');
     } catch(err) { alert('Failed to load session: ' + err.message); }
@@ -2488,7 +2765,8 @@ function deleteSelected(section) {
   const ids=[...document.querySelectorAll(`#${section}GridContainer input[type="checkbox"][data-id]:checked`)].map(cb=>cb.dataset.id).filter(Boolean);
   if (!ids.length) { alert('Select at least one row to delete.'); return; }
   if (!confirm(`Delete ${ids.length} selected row(s)?`)) return;
-  S[section].rows = S[section].rows.filter(r=>!ids.includes(r.id));
+  if (section==='univ') { S.sku.universeRows=S.sku.universeRows.filter(r=>!ids.includes(r.id)); S.sku.universeConfirmed=false; buildRows(); }
+  else S[section].rows = S[section].rows.filter(r=>!ids.includes(r.id));
   S.deleteMode[section]=false;
   const btn=document.getElementById('delModeBtn-'+section);
   if (btn){btn.textContent='🗑 Delete Rows';btn.className='btn btn-secondary btn-sm';}
@@ -2516,6 +2794,7 @@ function renderSectionGrid(section) {
   else if (section==='sku') renderSkuGrid();
   else if (section==='sam') renderSamGrid();
   else if (section==='sv') renderSvGrid();
+  else if (section==='univ') renderUniverseGrid();
 }
 
 // ============================================================
@@ -2563,6 +2842,7 @@ function confirmSchData() {
 
 function confirmSkuData() {
   const el=document.getElementById('skuConfirmResult');
+  if (!S.sku.universeConfirmed){el.innerHTML='<span style="color:#ef4444">⛔ Confirm the SKU Universe (Phase 1) before proceeding.</span>';return;}
   if (S.sku.useAssortment===null){el.innerHTML='<span style="color:#ef4444">⛔ Choose whether this project uses assortments first.</span>';return;}
   if (!S.sku.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No SKU rows added yet.</span>';return;}
   const errs=validateSkuRows();const cnt=Object.keys(errs).length;
@@ -2610,12 +2890,15 @@ function confirmSvData() {
 // ============================================================
 function setSkuAssortment(val) {
   S.sku.useAssortment=val;
-  document.getElementById('assortmentOpt-no').classList.toggle('active',val===false);
-  document.getElementById('assortmentOpt-yes').classList.toggle('active',val===true);
+  document.getElementById('assortmentOpt-no')?.classList.toggle('active',val===false);
+  document.getElementById('assortmentOpt-yes')?.classList.toggle('active',val===true);
   const modeCard=document.getElementById('skuModeCard');
   if (modeCard) modeCard.style.display=val?'':'none';
+  const builder=document.getElementById('skuAssortmentBuilder');
+  if (builder) builder.style.display=val?'':'none';
   renderReservedClassPicker();
   resetConfirm('sku');
+  buildRows();
 }
 
 // ============================================================
