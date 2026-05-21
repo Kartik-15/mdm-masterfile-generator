@@ -398,8 +398,19 @@ table.fref tr:last-child td{border-bottom:none}
         <div id="schMapperWrap"></div>
       </div>
 
-      <div class="grid-toolbar">
+      <div class="grid-toolbar" style="flex-wrap:wrap;gap:8px">
         <button class="btn btn-secondary btn-sm" onclick="addSchRow()">+ Add Row Manually</button>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <label style="font-size:12px;color:#6b7280;white-space:nowrap">Set all frequencies:</label>
+          <select id="schBulkFreq" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">
+            <option value="">— pick —</option>
+            <option value="weekly">weekly</option>
+            <option value="daily">daily</option>
+            <option value="monthly">monthly</option>
+            <option value="custom">custom</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="applyBulkFrequency()">Apply to all</button>
+        </div>
         <span class="row-count" id="schRowCount">0 rows</span>
       </div>
       <div class="grid-wrap"><div id="schGridContainer"></div></div>
@@ -725,8 +736,9 @@ const SECTION_COLS = {
   ],
   sch: [
     {key:'storeId',label:'Store ID',required:true},
-    {key:'userId',label:'User ID',required:true},
-    {key:'frequency',label:'Frequency',required:true},
+    {key:'userId',label:'User ID'},
+    {key:'userName',label:'User Name (if no User ID — will auto-resolve)'},
+    {key:'frequency',label:'Frequency'},
     {key:'customInterval',label:'Custom Interval'},
     {key:'startDate',label:'Start Date'},
     {key:'endDate',label:'End Date'}
@@ -745,20 +757,24 @@ function handleUpload(input, section) {
   input.value = '';
 }
 
+function stripEmptyRows(data) {
+  return data.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
+}
+
 function processUploadedFile(file, section) {
   const ext = file.name.split('.').pop().toLowerCase();
   const wrapId = section + 'MapperWrap';
   if (ext === 'csv') {
     Papa.parse(file, {
       header: true, skipEmptyLines: true,
-      complete: res => showMapper(res.data, res.meta.fields, section, wrapId)
+      complete: res => { const d=stripEmptyRows(res.data); showMapper(d, res.meta.fields, section, wrapId); }
     });
   } else {
     const reader = new FileReader();
     reader.onload = e => {
       const wb = XLSX.read(e.target.result, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const data = stripEmptyRows(XLSX.utils.sheet_to_json(ws, {defval:''}));
       const fields = data.length ? Object.keys(data[0]) : [];
       showMapper(data, fields, section, wrapId);
     };
@@ -839,7 +855,16 @@ function applyMappingCore(section, data, wrap) {
   });
   if (section === 'sm') { S.sm.rows.push(...rows); renderSmGrid(); }
   else if (section === 'um') { S.um.rows.push(...rows); renderUmGrid(); }
-  else if (section === 'sch') { S.sch.rows.push(...rows); renderSchGrid(); }
+  else if (section === 'sch') {
+    // Resolve userName → userId for rows where userId is blank but userName was mapped
+    rows.forEach(row => {
+      if (!row.userId.trim() && row.userName.trim()) {
+        const match = S.um.rows.find(u => u.userName.trim().toLowerCase() === row.userName.trim().toLowerCase());
+        if (match) { row.userId = match.userId; row.userName = match.userName; }
+      }
+    });
+    S.sch.rows.push(...rows); renderSchGrid();
+  }
   else if (section === 'sam') { S.sam.rows.push(...rows); renderSamGrid(); }
   else if (section === 'sv') { S.sv.rows.push(...rows); renderSvGrid(); }
   updateDots();
@@ -910,14 +935,14 @@ function processSmFile(file, storeType) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
     Papa.parse(file, { header:true, skipEmptyLines:true,
-      complete: res => showSmMapper(res.data, res.meta.fields, storeType, wrapId)
+      complete: res => { const d=stripEmptyRows(res.data); showSmMapper(d, res.meta.fields, storeType, wrapId); }
     });
   } else {
     const reader = new FileReader();
     reader.onload = e => {
       const wb = XLSX.read(e.target.result, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const data = stripEmptyRows(XLSX.utils.sheet_to_json(ws, {defval:''}));
       const fields = data.length ? Object.keys(data[0]) : [];
       showSmMapper(data, fields, storeType, wrapId);
     };
@@ -1243,6 +1268,13 @@ function generateUserIds() {
 
 function addSchRow() { S.sch.rows.push(makeRow('sch')); renderSchGrid(); updateDots(); }
 function deleteSchRow(id) { S.sch.rows=S.sch.rows.filter(r=>r.id!==id); renderSchGrid(); updateDots(); }
+
+function applyBulkFrequency() {
+  const freq = document.getElementById('schBulkFreq')?.value;
+  if (!freq) return;
+  S.sch.rows.forEach(r => { r.frequency = freq; if (freq !== 'custom') r.customInterval = ''; });
+  renderSchGrid();
+}
 
 function updateSchRow(id, key, val) {
   const row = S.sch.rows.find(r=>r.id===id);
