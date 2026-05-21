@@ -59,6 +59,7 @@ table.grid td input:focus,table.grid td select:focus{background:#f0f7ff}
 table.grid td.err{border-color:#ef4444;background:#fef2f2}
 table.grid td.warn{border-color:#f59e0b;background:#fffbeb}
 table.grid td.del-col{width:30px;text-align:center;background:#f9fafb}
+table.grid th.sel-col,table.grid td.sel-col{width:32px;text-align:center;background:#f9fafb;padding:3px}
 .grid-toolbar{display:flex;gap:8px;margin-bottom:8px;align-items:center}
 .row-count{font-size:11px;color:#9ca3af;margin-left:auto}
 .err-tip{font-size:10px;color:#ef4444;padding:1px 7px 3px;display:block}
@@ -286,6 +287,8 @@ table.fref tr:last-child td{border-bottom:none}
     </div>
     <div style="height:10px"></div>
     <div class="grid-toolbar">
+      <button class="btn btn-secondary btn-sm" id="delModeBtn-sm" onclick="toggleDeleteMode('sm')">🗑 Delete Rows</button>
+      <button class="btn btn-danger btn-sm" id="delSelBtn-sm" onclick="deleteSelected('sm')" style="display:none">Delete Selected</button>
       <span class="row-count" id="smRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="smGridContainer"></div></div>
@@ -350,9 +353,15 @@ table.fref tr:last-child td{border-bottom:none}
       <div id="umAutoGenWrap"></div>
       <div class="grid-toolbar" style="margin-top:10px">
         <button class="btn btn-secondary btn-sm" onclick="addUmRow()">+ Add Row</button>
+        <button class="btn btn-secondary btn-sm" id="delModeBtn-um" onclick="toggleDeleteMode('um')">🗑 Delete Rows</button>
+        <button class="btn btn-danger btn-sm" id="delSelBtn-um" onclick="deleteSelected('um')" style="display:none">Delete Selected</button>
         <span class="row-count" id="umRowCount">0 rows</span>
       </div>
       <div class="grid-wrap"><div id="umGridContainer"></div></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="confirmUmData()" style="min-width:180px">✅ Confirm User Master</button>
+        <div id="umConfirmResult" style="font-size:12.5px;flex:1"></div>
+      </div>
     </div>
 
     <!-- Schedule Master -->
@@ -400,6 +409,8 @@ table.fref tr:last-child td{border-bottom:none}
 
       <div class="grid-toolbar" style="flex-wrap:wrap;gap:8px">
         <button class="btn btn-secondary btn-sm" onclick="addSchRow()">+ Add Row Manually</button>
+        <button class="btn btn-secondary btn-sm" id="delModeBtn-sch" onclick="toggleDeleteMode('sch')">🗑 Delete Rows</button>
+        <button class="btn btn-danger btn-sm" id="delSelBtn-sch" onclick="deleteSelected('sch')" style="display:none">Delete Selected</button>
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
           <label style="font-size:12px;color:#6b7280;white-space:nowrap">Set all frequencies:</label>
           <select id="schBulkFreq" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">
@@ -414,6 +425,10 @@ table.fref tr:last-child td{border-bottom:none}
         <span class="row-count" id="schRowCount">0 rows</span>
       </div>
       <div class="grid-wrap"><div id="schGridContainer"></div></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="confirmSchData()" style="min-width:200px">✅ Confirm Schedule Master</button>
+        <div id="schConfirmResult" style="font-size:12.5px;flex:1"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -455,6 +470,16 @@ table.fref tr:last-child td{border-bottom:none}
   </div>
 
   <div class="card">
+    <div class="card-title"><span class="card-title-left">Does this project use named assortments?</span></div>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">An assortment is a named product list assigned to specific stores. If all stores should see the same SKUs, choose No.</p>
+    <div class="radio-group">
+      <div class="radio-opt" id="assortmentOpt-no" onclick="setSkuAssortment(false)">No — all stores see all SKUs</div>
+      <div class="radio-opt" id="assortmentOpt-yes" onclick="setSkuAssortment(true)">Yes — stores are assigned to specific assortments</div>
+    </div>
+    <div id="skuAssortmentHint"></div>
+  </div>
+
+  <div class="card" id="skuModeCard" style="display:none">
     <div class="card-title"><span class="card-title-left">Assortment Mode — pick one</span></div>
     <div class="radio-group">
       <div class="radio-opt active" id="skuMode-category" onclick="setSkuMode('category')">Category Level</div>
@@ -480,9 +505,15 @@ table.fref tr:last-child td{border-bottom:none}
     <div class="card-title"><span class="card-title-left">SKU Rows</span></div>
     <div class="grid-toolbar">
       <button class="btn btn-secondary btn-sm" onclick="addSkuRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" id="delModeBtn-sku" onclick="toggleDeleteMode('sku')">🗑 Delete Rows</button>
+      <button class="btn btn-danger btn-sm" id="delSelBtn-sku" onclick="deleteSelected('sku')" style="display:none">Delete Selected</button>
       <span class="row-count" id="skuRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="skuGridContainer"></div></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="confirmSkuData()" style="min-width:200px">✅ Confirm SKU Assortment</button>
+      <div id="skuConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
   </div>
 </div>
 
@@ -540,9 +571,15 @@ table.fref tr:last-child td{border-bottom:none}
     </div>
     <div class="grid-toolbar">
       <button class="btn btn-secondary btn-sm" onclick="addSamRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" id="delModeBtn-sam" onclick="toggleDeleteMode('sam')">🗑 Delete Rows</button>
+      <button class="btn btn-danger btn-sm" id="delSelBtn-sam" onclick="deleteSelected('sam')" style="display:none">Delete Selected</button>
       <span class="row-count" id="samRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="samGridContainer"></div></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="confirmSamData()" style="min-width:220px">✅ Confirm Store-Assortment Mapping</button>
+      <div id="samConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
   </div>
 </div>
 
@@ -593,9 +630,15 @@ table.fref tr:last-child td{border-bottom:none}
     <div class="card-title"><span class="card-title-left">Survey Rows</span><span id="svErrorBadge"></span></div>
     <div class="grid-toolbar">
       <button class="btn btn-secondary btn-sm" onclick="addSvRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" id="delModeBtn-sv" onclick="toggleDeleteMode('sv')">🗑 Delete Rows</button>
+      <button class="btn btn-danger btn-sm" id="delSelBtn-sv" onclick="deleteSelected('sv')" style="display:none">Delete Selected</button>
       <span class="row-count" id="svRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="svGridContainer"></div></div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="confirmSvData()" style="min-width:200px">✅ Confirm Survey Master</button>
+      <div id="svConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
   </div>
 </div>
 
@@ -648,10 +691,12 @@ const uid = () => 'r' + (_id++);
 
 const S = {
   projectName: '',
+  deleteMode: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
+  confirmed: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
   sm: { rows: [], customHeaders: Array(12).fill('') },
   um: { rows: [] },
   sch: { rows: [] },
-  sku: { mode: 'category', rows: [] },
+  sku: { mode: 'category', useAssortment: null, rows: [] },
   sam: { rows: [] },
   sv: { rows: [] }
 };
@@ -682,11 +727,11 @@ function switchSubTab(section, pane) {
 function updateDots() {
   const checks = {
     t1: () => S.projectName.trim().length > 0,
-    t2: () => S.sm.rows.length > 0,
-    t3: () => S.um.rows.length > 0 || S.sch.rows.length > 0,
-    t4: () => S.sku.rows.length > 0,
-    t5: () => S.sam.rows.length > 0,
-    t6: () => S.sv.rows.length > 0,
+    t2: () => S.confirmed.sm,
+    t3: () => S.confirmed.um && S.confirmed.sch,
+    t4: () => S.confirmed.sku,
+    t5: () => S.confirmed.sam,
+    t6: () => S.confirmed.sv,
     t7: () => false
   };
   Object.entries(checks).forEach(([tab, fn]) => {
@@ -853,8 +898,8 @@ function applyMappingCore(section, data, wrap) {
     });
     return row;
   });
-  if (section === 'sm') { S.sm.rows.push(...rows); renderSmGrid(); }
-  else if (section === 'um') { S.um.rows.push(...rows); renderUmGrid(); }
+  if (section === 'sm') { S.sm.rows.push(...rows); resetConfirm('sm'); renderSmGrid(); }
+  else if (section === 'um') { S.um.rows.push(...rows); resetConfirm('um'); renderUmGrid(); }
   else if (section === 'sch') {
     // Resolve userName → userId for rows where userId is blank but userName was mapped
     rows.forEach(row => {
@@ -863,10 +908,10 @@ function applyMappingCore(section, data, wrap) {
         if (match) { row.userId = match.userId; row.userName = match.userName; }
       }
     });
-    S.sch.rows.push(...rows); renderSchGrid();
+    S.sch.rows.push(...rows); resetConfirm('sch'); renderSchGrid();
   }
-  else if (section === 'sam') { S.sam.rows.push(...rows); renderSamGrid(); }
-  else if (section === 'sv') { S.sv.rows.push(...rows); renderSvGrid(); }
+  else if (section === 'sam') { S.sam.rows.push(...rows); resetConfirm('sam'); renderSamGrid(); }
+  else if (section === 'sv') { S.sv.rows.push(...rows); resetConfirm('sv'); renderSvGrid(); }
   updateDots();
   wrap.remove();
 }
@@ -998,6 +1043,7 @@ function applySmMapping(uploadType, dataKey, wrap) {
     return row;
   });
   S.sm.rows.push(...rows);
+  resetConfirm('sm');
   renderSmGrid();
   updateDots();
   wrap.remove();
@@ -1018,9 +1064,8 @@ function addSmRow(uploadType='Digital') {
   const r = makeRow('sm');
   const cfg = SM_CONFIGS[uploadType];
   if (cfg) Object.entries(cfg.forceFields).forEach(([k,v]) => { r[k]=v; });
-  S.sm.rows.push(r); renderSmGrid(); updateDots();
+  S.sm.rows.push(r); resetConfirm('sm'); renderSmGrid(); updateDots();
 }
-function deleteSmRow(id) { S.sm.rows = S.sm.rows.filter(r=>r.id!==id); renderSmGrid(); updateDots(); }
 
 function renderSmGrid() {
   const container = document.getElementById('smGridContainer');
@@ -1036,14 +1081,17 @@ function renderSmGrid() {
   const mBadge=document.getElementById('smManualCount'); if(mBadge) mBadge.textContent=mCount+' store'+(mCount!==1?'s':'');
   const tBadge=document.getElementById('smTestCount');   if(tBadge) tBadge.textContent=tCount+' store'+(tCount!==1?'s':'');
   if (!rows.length) { container.innerHTML = '<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
+  const delMode=S.deleteMode.sm;
   let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#smGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
     <th>#</th><th>Store ID *</th><th>Store Name *</th><th>Store Type *</th><th>Test Shop *</th>
     <th>Retailer</th><th>Region/Area</th><th>Latitude</th><th>Longitude</th>
     ${activeCustom.map(c=>`<th>${escHtml(c.h)}</th>`).join('')}
-    <th></th></tr></thead><tbody>`;
+    </tr></thead><tbody>`;
   rows.forEach((row,idx) => {
     const rowErrs = errors[row.id] || {};
     html += `<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       ${smCell(row,'storeId','text',rowErrs,'Store ID')}
       ${smCell(row,'storeName','text',rowErrs,'Store Name')}
@@ -1062,7 +1110,6 @@ function renderSmGrid() {
       ${smCell(row,'lat','text',rowErrs,'Latitude')}
       ${smCell(row,'lng','text',rowErrs,'Longitude')}
       ${activeCustom.map(c=>`<td><input type="text" value="${escHtml(row['c'+(c.i+1)]||'')}" onchange="updateSmRow('${row.id}','c${c.i+1}',this.value)"></td>`).join('')}
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteSmRow('${row.id}')">×</button></td>
     </tr>
     ${Object.values(rowErrs).length ? `<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(rowErrs).join(' · ')}</span></td></tr>` : ''}`;
   });
@@ -1076,7 +1123,7 @@ function smCell(row, key, type, errs, placeholder) {
 
 function updateSmRow(id, key, val) {
   const row = S.sm.rows.find(r=>r.id===id);
-  if (row) { row[key]=val; renderSmGrid(); }
+  if (row) { row[key]=val; if(S.confirmed.sm){resetConfirm('sm');} renderSmGrid(); }
 }
 
 function validateSmRows() {
@@ -1138,6 +1185,7 @@ function confirmSmData() {
     el.innerHTML = `<span style="color:#dc2626">⛔ <strong>${errCount} row(s) have errors — fix them before proceeding.</strong></span>
       <ul style="margin:6px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
   } else {
+    S.confirmed.sm = true;
     el.innerHTML = `<span style="color:#16a34a">✅ <strong>Store Master confirmed!</strong> ${total} store(s) ready.
       &nbsp;·&nbsp; Digital: ${dCount} &nbsp;·&nbsp; Manual: ${mCount} &nbsp;·&nbsp; Test: ${tCount}</span>`;
     updateDots();
@@ -1147,8 +1195,7 @@ function confirmSmData() {
 // ============================================================
 // SECTION 3: BEAT PLAN
 // ============================================================
-function addUmRow() { S.um.rows.push(makeRow('um')); renderUmGrid(); updateDots(); }
-function deleteUmRow(id) { S.um.rows = S.um.rows.filter(r=>r.id!==id); renderUmGrid(); updateDots(); }
+function addUmRow() { S.um.rows.push(makeRow('um')); resetConfirm('um'); renderUmGrid(); updateDots(); }
 function updateUmRow(id,key,val) { const r=S.um.rows.find(r=>r.id===id); if(r){r[key]=val;renderUmGrid();} }
 
 function renderUmGrid() {
@@ -1157,17 +1204,20 @@ function renderUmGrid() {
   document.getElementById('umRowCount').textContent = S.um.rows.length + ' rows';
   const errs = validateUmRows();
   if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; checkAndShowAutoGenPasswords(); return; }
-  let html = `<table class="grid"><thead><tr><th>#</th><th>User ID *</th><th>User Name *</th><th>Password *</th><th>Monthly Working Days</th><th></th></tr></thead><tbody>`;
+  const delMode=S.deleteMode.um;
+  let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#umGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    <th>#</th><th>User ID *</th><th>User Name *</th><th>Password *</th><th>Monthly Working Days</th></tr></thead><tbody>`;
   S.um.rows.forEach((row,idx) => {
     const e = errs[row.id]||{};
     html += `<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       <td class="${e.userId?'err':''}"><input type="text" value="${escHtml(row.userId)}" onchange="updateUmRow('${row.id}','userId',this.value)"></td>
       <td class="${e.userName?'err':''}"><input type="text" value="${escHtml(row.userName)}" onchange="updateUmRow('${row.id}','userName',this.value)"></td>
       <td class="${e.password?'err':''}"><input type="password" value="${escHtml(row.password)}" onchange="updateUmRow('${row.id}','password',this.value)"></td>
       <td><input type="text" value="${escHtml(row.monthlyDays)}" onchange="updateUmRow('${row.id}','monthlyDays',this.value)"></td>
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteUmRow('${row.id}')">×</button></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="6" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?6:5}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
@@ -1266,8 +1316,7 @@ function generateUserIds() {
   updateDots();
 }
 
-function addSchRow() { S.sch.rows.push(makeRow('sch')); renderSchGrid(); updateDots(); }
-function deleteSchRow(id) { S.sch.rows=S.sch.rows.filter(r=>r.id!==id); renderSchGrid(); updateDots(); }
+function addSchRow() { S.sch.rows.push(makeRow('sch')); resetConfirm('sch'); renderSchGrid(); updateDots(); }
 
 function applyBulkFrequency() {
   const freq = document.getElementById('schBulkFreq')?.value;
@@ -1293,10 +1342,14 @@ function renderSchGrid() {
   const storeIds = S.sm.rows.map(r=>r.storeId).filter(Boolean);
   const userIds = S.um.rows.map(r=>r.userId).filter(Boolean);
   if (!S.sch.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; renderSchCoverage(); return; }
-  let html = `<table class="grid"><thead><tr><th>#</th><th>Store ID *</th><th>Store Name</th><th>User ID *</th><th>User Name</th><th>Start Date</th><th>Frequency *</th><th>End Date</th><th>Custom Interval</th><th></th></tr></thead><tbody>`;
+  const delMode=S.deleteMode.sch;
+  let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#schGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    <th>#</th><th>Store ID *</th><th>Store Name</th><th>User ID *</th><th>User Name</th><th>Start Date</th><th>Frequency *</th><th>End Date</th><th>Custom Interval</th></tr></thead><tbody>`;
   S.sch.rows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       <td class="${e.storeId?'err':''}"><select onchange="updateSchRow('${row.id}','storeId',this.value)" style="min-width:100px">
         <option value="">—</option>
@@ -1317,8 +1370,7 @@ function renderSchGrid() {
       </select></td>
       <td class="${e.endDate?'err':''}"><input type="text" placeholder="YYYY-MM-DD" value="${escHtml(row.endDate)}" onchange="updateSchRow('${row.id}','endDate',this.value)"></td>
       <td class="${e.customInterval?'err':''}"><input type="text" placeholder="${row.frequency==='custom'?'Required':'—'}" value="${escHtml(row.customInterval)}" onchange="updateSchRow('${row.id}','customInterval',this.value)" ${row.frequency!=='custom'?'style="background:#f9fafb"':''}></td>
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteSchRow('${row.id}')">×</button></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="10" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?10:9}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
@@ -1327,6 +1379,20 @@ function renderSchGrid() {
 
 function validateSchRows() {
   const errors={}, seenPairs={};
+  // Build SM lookup for cross-type checks
+  const smMap={};
+  S.sm.rows.forEach(r=>{ if(r.storeId) smMap[r.storeId]=r; });
+  // First pass: per-user store type profile
+  const userMix={};
+  S.sch.rows.forEach(row=>{
+    if (!row.userId||!row.storeId) return;
+    const sm=smMap[row.storeId];
+    if (!sm) return;
+    if (!userMix[row.userId]) userMix[row.userId]={hasTest:false,hasLive:false,hasDigital:false,hasManual:false};
+    if (sm.testShop==='1') userMix[row.userId].hasTest=true; else userMix[row.userId].hasLive=true;
+    if (sm.storeType==='Digital') userMix[row.userId].hasDigital=true;
+    if (sm.storeType==='Manual') userMix[row.userId].hasManual=true;
+  });
   S.sch.rows.forEach(row => {
     const e={};
     if (!row.storeId) e.storeId='Store ID required';
@@ -1340,6 +1406,12 @@ function validateSchRows() {
     const pair = `${row.storeId}|${row.userId}`;
     if (seenPairs[pair]) e.storeId=(e.storeId?e.storeId+'; ':'')+'Duplicate Store+User assignment';
     else seenPairs[pair]=true;
+    // Cross-type: same user can't have both live + test stores, or Digital + Manual stores
+    if (row.userId && userMix[row.userId]) {
+      const mix=userMix[row.userId];
+      if (mix.hasTest&&mix.hasLive) e.userId=(e.userId?e.userId+'; ':'')+'User assigned to both live and test stores';
+      if (mix.hasDigital&&mix.hasManual) e.userId=(e.userId?e.userId+'; ':'')+'User assigned to both Digital and Manual stores';
+    }
     if (Object.keys(e).length) errors[row.id]=e;
   });
   return errors;
@@ -1475,6 +1547,7 @@ function applySchAutoFill(){
   S.sch.rows.push(...pairs.map(p=>{const r=makeRow('sch');r.storeId=p.storeId;r.storeName=p.storeName;r.userId=p.userId;r.userName=p.userName;r.frequency=freq;return r;}));
   window._schAssignRows=null;
   resetSchAutoFillPanel();
+  resetConfirm('sch');
   renderSchGrid();
   updateDots();
 }
@@ -1517,15 +1590,16 @@ function handleSkuUpload(input) {
       div.id = itemId;
       div.className = 'sku-upload-item';
       const modeLabel = S.sku.mode==='category' ? 'Assortment Name' : 'Store Metadata Column Value';
+      const showAssortmentInput = S.sku.useAssortment === true;
       div.innerHTML = `<div class="sku-upload-header">
         <span class="sku-file-name">📄 ${escHtml(file.name)}</span>
         <span style="font-size:11px;color:#9ca3af">${data.length} rows</span>
         <button class="btn btn-danger btn-sm" onclick="document.getElementById('${itemId}').remove()">Remove</button>
       </div>
-      <div style="margin-bottom:10px">
+      ${showAssortmentInput ? `<div style="margin-bottom:10px">
         <label style="font-size:12px;font-weight:600;color:#374151">${modeLabel} <span style="color:#dc2626">*</span> <span style="font-size:11px;font-weight:400;color:#6b7280">— name for this group of SKUs</span></label>
         <input type="text" id="${itemId}_assortment" placeholder="e.g. Modern Trade Assortment" style="margin-top:4px;width:100%;max-width:360px;padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:4px">
-      </div>
+      </div>` : ''}
       <div class="mapper-wrap">
         <div class="mapper-title">Map columns from your file to MDM fields</div>
         <div class="mapper-req-note" style="margin-bottom:8px"><strong>Required:</strong> * SKU Name, * Category Name — make sure these are mapped before applying.</div>
@@ -1542,8 +1616,8 @@ function handleSkuUpload(input) {
       </div>`;
       list.appendChild(div);
     };
-    if (ext==='csv') Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>processData(r.data)});
-    else { const reader=new FileReader(); reader.onload=e=>{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];processData(XLSX.utils.sheet_to_json(ws,{defval:''}));};reader.readAsArrayBuffer(file); }
+    if (ext==='csv') Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>processData(stripEmptyRows(r.data))});
+    else { const reader=new FileReader(); reader.onload=e=>{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];processData(stripEmptyRows(XLSX.utils.sheet_to_json(ws,{defval:''})));};reader.readAsArrayBuffer(file); }
   });
   input.value='';
 }
@@ -1565,13 +1639,13 @@ function applySkuMapping(dataKey, itemId) {
     return row;
   });
   S.sku.rows.push(...rows);
+  resetConfirm('sku');
   renderSkuGrid();
   updateDots();
   item.remove();
 }
 
-function addSkuRow() { S.sku.rows.push(makeRow('sku')); renderSkuGrid(); updateDots(); }
-function deleteSkuRow(id) { S.sku.rows=S.sku.rows.filter(r=>r.id!==id); renderSkuGrid(); updateDots(); }
+function addSkuRow() { S.sku.rows.push(makeRow('sku')); resetConfirm('sku'); renderSkuGrid(); updateDots(); }
 function updateSkuRow(id,key,val) { const r=S.sku.rows.find(r=>r.id===id); if(r){r[key]=val;renderSkuGrid();} }
 
 function renderSkuGrid() {
@@ -1581,18 +1655,21 @@ function renderSkuGrid() {
   if (!S.sku.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
   const isCat = S.sku.mode==='category';
   const errs = validateSkuRows();
-  let html = `<table class="grid"><thead><tr><th>#</th><th>SKU Name *</th><th>Category Name *</th>
-    <th>${isCat?'Assortment Name':'Store Metadata Col'}</th>
-    <th>Core Flag</th><th>NPD Flag</th><th>Regular OSA</th><th>SOS</th><th></th></tr></thead><tbody>`;
+  const delMode=S.deleteMode.sku;
+  let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#skuGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    <th>#</th><th>SKU Name *</th><th>Category Name *</th>
+    ${S.sku.useAssortment?`<th>${isCat?'Assortment Name':'Store Metadata Col'}</th>`:''}
+    <th>Core Flag</th><th>NPD Flag</th><th>Regular OSA</th><th>SOS</th></tr></thead><tbody>`;
   S.sku.rows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       <td class="${e.skuName?'err':''}"><input type="text" value="${escHtml(row.skuName)}" onchange="updateSkuRow('${row.id}','skuName',this.value)"></td>
       <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSkuRow('${row.id}','categoryName',this.value)"></td>
-      <td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>
+      ${S.sku.useAssortment?`<td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`:''}
       ${flagCell(row,'coreFlag',e)} ${flagCell(row,'npdFlag',e)} ${flagCell(row,'regularOsa',e)} ${flagCell(row,'sos',e)}
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteSkuRow('${row.id}')">×</button></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1633,8 +1710,7 @@ function getAssortmentNames() {
 // ============================================================
 // SECTION 5: STORE-ASSORTMENT MAPPING
 // ============================================================
-function addSamRow() { S.sam.rows.push(makeRow('sam')); renderSamGrid(); updateDots(); }
-function deleteSamRow(id) { S.sam.rows=S.sam.rows.filter(r=>r.id!==id); renderSamGrid(); updateDots(); }
+function addSamRow() { S.sam.rows.push(makeRow('sam')); resetConfirm('sam'); renderSamGrid(); updateDots(); }
 function updateSamRow(id,key,val) { const r=S.sam.rows.find(r=>r.id===id); if(r){r[key]=val;renderSamGrid();} }
 
 function renderSamSmartAssigner() {
@@ -1683,11 +1759,11 @@ function toggleSamAssignment(assortmentName, shopId, checked) {
     if (!existing) {
       const store = S.sm.rows.find(r=>r.storeId===shopId);
       S.sam.rows.push({...makeRow('sam'), shopId, assortmentName, shopName: store?.storeName||''});
-      renderSamGrid(); updateDots();
+      resetConfirm('sam'); renderSamGrid(); updateDots();
     }
   } else {
     S.sam.rows = S.sam.rows.filter(r=>!(r.assortmentName===assortmentName&&r.shopId===shopId));
-    renderSamGrid(); updateDots();
+    resetConfirm('sam'); renderSamGrid(); updateDots();
   }
 }
 
@@ -1701,11 +1777,15 @@ function renderSamGrid() {
   if (!c) return;
   document.getElementById('samRowCount').textContent = S.sam.rows.length + ' rows';
   if (!S.sam.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
-  let html = `<table class="grid"><thead><tr><th>#</th><th>Shop ID *</th><th>Category Heading</th><th>Category Name *</th><th>Shelf Section *</th><th>Image Links</th><th>Assortment Name *</th><th></th></tr></thead><tbody>`;
+  const delMode=S.deleteMode.sam;
+  let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#samGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    <th>#</th><th>Shop ID *</th><th>Category Heading</th><th>Category Name *</th><th>Shelf Section *</th><th>Image Links</th><th>Assortment Name *</th></tr></thead><tbody>`;
   const errs = validateSamRows();
   S.sam.rows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       <td class="${e.shopId?'err':''}"><input type="text" value="${escHtml(row.shopId)}" onchange="updateSamRow('${row.id}','shopId',this.value)"></td>
       <td><input type="text" value="${escHtml(row.categoryHeading)}" onchange="updateSamRow('${row.id}','categoryHeading',this.value)"></td>
@@ -1713,7 +1793,6 @@ function renderSamGrid() {
       <td class="${e.shelfSection?'err':''}"><input type="text" value="${escHtml(row.shelfSection)}" onchange="updateSamRow('${row.id}','shelfSection',this.value)"></td>
       <td><input type="text" value="${escHtml(row.shelfImages)}" onchange="updateSamRow('${row.id}','shelfImages',this.value)"></td>
       <td class="${e.assortmentName?'err':''}"><input type="text" value="${escHtml(row.assortmentName)}" onchange="updateSamRow('${row.id}','assortmentName',this.value)"></td>
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteSamRow('${row.id}')">×</button></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -1736,8 +1815,7 @@ function validateSamRows() {
 // ============================================================
 // SECTION 6: SURVEY MASTER
 // ============================================================
-function addSvRow() { S.sv.rows.push(makeRow('sv')); renderSvGrid(); updateDots(); }
-function deleteSvRow(id) { S.sv.rows=S.sv.rows.filter(r=>r.id!==id); renderSvGrid(); updateDots(); }
+function addSvRow() { S.sv.rows.push(makeRow('sv')); resetConfirm('sv'); renderSvGrid(); updateDots(); }
 function updateSvRow(id,key,val) {
   const row=S.sv.rows.find(r=>r.id===id);
   if (!row) return;
@@ -1755,11 +1833,15 @@ function renderSvGrid() {
   const badge = document.getElementById('svErrorBadge');
   if (badge) badge.innerHTML = errCount ? `<span class="tag tag-red">${errCount} row(s) with errors</span>` : (S.sv.rows.length ? `<span class="tag tag-green">✓ No errors</span>` : '');
   if (!S.sv.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Upload a survey file or add rows manually.</p>'; return; }
-  let html = `<table class="grid"><thead><tr><th>#</th><th>Shop ID *</th><th>Shop Name</th><th>Category Name *</th><th>Sections</th><th>Survey Questions</th><th>Question Type *</th><th>Answers</th><th>Question Flag *</th><th></th></tr></thead><tbody>`;
+  const delMode=S.deleteMode.sv;
+  let html = `<table class="grid"><thead><tr>
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#svGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    <th>#</th><th>Shop ID *</th><th>Shop Name</th><th>Category Name *</th><th>Sections</th><th>Survey Questions</th><th>Question Type *</th><th>Answers</th><th>Question Flag *</th></tr></thead><tbody>`;
   S.sv.rows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     const answersLocked = ['sos','price','date','phototext'].includes(row.questionType);
     html += `<tr class="${Object.keys(e).length?'has-err':''}">
+      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       <td class="${e.shopId?'err':''}"><input type="text" value="${escHtml(row.shopId)}" onchange="updateSvRow('${row.id}','shopId',this.value)"></td>
       <td><input type="text" value="${escHtml(row.shopName)}" onchange="updateSvRow('${row.id}','shopName',this.value)"></td>
@@ -1776,8 +1858,7 @@ function renderSvGrid() {
         <option value="optional" ${row.questionFlag==='optional'?'selected':''}>optional</option>
         <option value="mandatory" ${row.questionFlag==='mandatory'?'selected':''}>mandatory</option>
       </select></td>
-      <td class="del-col"><button class="btn btn-danger btn-sm" onclick="deleteSvRow('${row.id}')">×</button></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="10" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?10:9}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
@@ -2056,6 +2137,144 @@ function toggleFieldRef(id) {
   const hidden = el.style.display === 'none';
   el.style.display = hidden ? '' : 'none';
   if (toggle) toggle.textContent = hidden ? '▼ hide' : '▶ show';
+}
+
+// ============================================================
+// DELETE MODE
+// ============================================================
+function toggleDeleteMode(section) {
+  S.deleteMode[section] = !S.deleteMode[section];
+  const btn = document.getElementById('delModeBtn-'+section);
+  const selBtn = document.getElementById('delSelBtn-'+section);
+  if (btn) {
+    if (S.deleteMode[section]) { btn.textContent='✕ Cancel'; btn.className='btn btn-danger btn-sm'; }
+    else { btn.textContent='🗑 Delete Rows'; btn.className='btn btn-secondary btn-sm'; }
+  }
+  if (selBtn) selBtn.style.display = S.deleteMode[section] ? '' : 'none';
+  renderSectionGrid(section);
+}
+
+function deleteSelected(section) {
+  const ids=[...document.querySelectorAll(`#${section}GridContainer input[type="checkbox"]:checked`)].map(cb=>cb.dataset.id);
+  if (!ids.length) { alert('Select at least one row to delete.'); return; }
+  if (!confirm(`Delete ${ids.length} selected row(s)?`)) return;
+  S[section].rows = S[section].rows.filter(r=>!ids.includes(r.id));
+  S.deleteMode[section]=false;
+  const btn=document.getElementById('delModeBtn-'+section);
+  if (btn){btn.textContent='🗑 Delete Rows';btn.className='btn btn-secondary btn-sm';}
+  const selBtn=document.getElementById('delSelBtn-'+section);
+  if (selBtn) selBtn.style.display='none';
+  resetConfirm(section);
+  renderSectionGrid(section);
+  updateDots();
+}
+
+function renderSectionGrid(section) {
+  if (section==='sm') renderSmGrid();
+  else if (section==='um') renderUmGrid();
+  else if (section==='sch') renderSchGrid();
+  else if (section==='sku') renderSkuGrid();
+  else if (section==='sam') renderSamGrid();
+  else if (section==='sv') renderSvGrid();
+}
+
+// ============================================================
+// CONFIRM + RESET CONFIRM
+// ============================================================
+function resetConfirm(section) {
+  if (S.confirmed[section]===undefined) return;
+  S.confirmed[section]=false;
+  const el=document.getElementById(section+'ConfirmResult');
+  if (el) el.innerHTML='<span style="color:#6b7280;font-size:12px">Changes detected — please confirm again.</span>';
+  updateDots();
+}
+
+function confirmUmData() {
+  const el=document.getElementById('umConfirmResult');
+  if (!S.um.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No users added yet.</span>';return;}
+  const errs=validateUmRows();const cnt=Object.keys(errs).length;
+  if (cnt){
+    const msgs={};Object.values(errs).forEach(e=>Object.values(e).forEach(m=>{if(m)msgs[m]=(msgs[m]||0)+1;}));
+    const issues=Object.entries(msgs).map(([m,c])=>`${m}${c>1?' ('+c+' rows)':''}`);
+    el.innerHTML=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors.</strong></span><ul style="margin:5px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  } else {
+    S.confirmed.um=true;updateDots();
+    el.innerHTML=`<span style="color:#16a34a">✅ <strong>User Master confirmed!</strong> ${S.um.rows.length} user(s) ready.</span>`;
+  }
+}
+
+function confirmSchData() {
+  const el=document.getElementById('schConfirmResult');
+  if (!S.sch.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No schedule rows added yet.</span>';return;}
+  const errs=validateSchRows();const cnt=Object.keys(errs).length;
+  const smIds=new Set(S.sm.rows.map(r=>r.storeId).filter(Boolean));
+  const schIds=new Set(S.sch.rows.map(r=>r.storeId).filter(Boolean));
+  const orphans=[...schIds].filter(id=>!smIds.has(id));
+  if (orphans.length||cnt){
+    let msg=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors.</strong></span>`;
+    if (orphans.length) msg+=`<br><span style="font-size:12px;color:#7f1d1d">${orphans.length} store(s) not in Store Master: ${orphans.join(', ')}</span>`;
+    el.innerHTML=msg;
+  } else {
+    const uncovered=[...smIds].filter(id=>!schIds.has(id));
+    S.confirmed.sch=true;updateDots();
+    el.innerHTML=`<span style="color:#16a34a">✅ <strong>Schedule Master confirmed!</strong> ${S.sch.rows.length} row(s).${uncovered.length?` ⚠️ ${uncovered.length} unscheduled store(s).`:' All stores scheduled.'}</span>`;
+  }
+}
+
+function confirmSkuData() {
+  const el=document.getElementById('skuConfirmResult');
+  if (S.sku.useAssortment===null){el.innerHTML='<span style="color:#ef4444">⛔ Choose whether this project uses assortments first.</span>';return;}
+  if (!S.sku.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No SKU rows added yet.</span>';return;}
+  const errs=validateSkuRows();const cnt=Object.keys(errs).length;
+  if (cnt){
+    const msgs={};Object.values(errs).forEach(e=>Object.values(e).forEach(m=>{if(m)msgs[m]=(msgs[m]||0)+1;}));
+    const issues=Object.entries(msgs).map(([m,c])=>`${m}${c>1?' ('+c+' rows)':''}`);
+    el.innerHTML=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors.</strong></span><ul style="margin:5px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  } else {
+    S.confirmed.sku=true;updateDots();
+    const assortments=getAssortmentNames();
+    el.innerHTML=`<span style="color:#16a34a">✅ <strong>SKU Assortment confirmed!</strong> ${S.sku.rows.length} SKU(s)${assortments.length?' across '+assortments.length+' assortment(s)':''} ready.</span>`;
+  }
+}
+
+function confirmSamData() {
+  const el=document.getElementById('samConfirmResult');
+  if (!S.sam.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No mapping rows added yet.</span>';return;}
+  const errs=validateSamRows();const cnt=Object.keys(errs).length;
+  if (cnt){
+    const msgs={};Object.values(errs).forEach(e=>Object.values(e).forEach(m=>{if(m)msgs[m]=(msgs[m]||0)+1;}));
+    const issues=Object.entries(msgs).map(([m,c])=>`${m}${c>1?' ('+c+' rows)':''}`);
+    el.innerHTML=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors.</strong></span><ul style="margin:5px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  } else {
+    S.confirmed.sam=true;updateDots();
+    el.innerHTML=`<span style="color:#16a34a">✅ <strong>Store-Assortment Mapping confirmed!</strong> ${S.sam.rows.length} mapping row(s) ready.</span>`;
+  }
+}
+
+function confirmSvData() {
+  const el=document.getElementById('svConfirmResult');
+  if (!S.sv.rows.length){el.innerHTML='<span style="color:#ef4444">⛔ No survey rows added yet.</span>';return;}
+  const errs=validateSvRows();const cnt=Object.keys(errs).length;
+  if (cnt){
+    const msgs={};Object.values(errs).forEach(e=>Object.values(e).forEach(m=>{if(m)msgs[m]=(msgs[m]||0)+1;}));
+    const issues=Object.entries(msgs).map(([m,c])=>`${m}${c>1?' ('+c+' rows)':''}`);
+    el.innerHTML=`<span style="color:#dc2626">⛔ <strong>${cnt} row(s) have errors.</strong></span><ul style="margin:5px 0 0 18px;padding:0;color:#7f1d1d;font-size:12px">${issues.map(i=>`<li>${i}</li>`).join('')}</ul>`;
+  } else {
+    S.confirmed.sv=true;updateDots();
+    el.innerHTML=`<span style="color:#16a34a">✅ <strong>Survey Master confirmed!</strong> ${S.sv.rows.length} row(s) ready.</span>`;
+  }
+}
+
+// ============================================================
+// SKU ASSORTMENT TOGGLE
+// ============================================================
+function setSkuAssortment(val) {
+  S.sku.useAssortment=val;
+  document.getElementById('assortmentOpt-no').classList.toggle('active',val===false);
+  document.getElementById('assortmentOpt-yes').classList.toggle('active',val===true);
+  const modeCard=document.getElementById('skuModeCard');
+  if (modeCard) modeCard.style.display=val?'':'none';
+  resetConfirm('sku');
 }
 
 // ============================================================
