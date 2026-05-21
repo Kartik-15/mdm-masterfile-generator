@@ -289,6 +289,7 @@ table.fref tr:last-child td{border-bottom:none}
     <div class="grid-toolbar">
       <button class="btn btn-secondary btn-sm" id="delModeBtn-sm" onclick="toggleDeleteMode('sm')">🗑 Delete Rows</button>
       <button class="btn btn-danger btn-sm" id="delSelBtn-sm" onclick="deleteSelected('sm')" style="display:none">Delete Selected</button>
+      <button class="btn btn-secondary btn-sm" id="selAllBtn-sm" onclick="selectAllInSection('sm')" style="display:none">Select All</button>
       <span class="row-count" id="smRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="smGridContainer"></div></div>
@@ -355,6 +356,7 @@ table.fref tr:last-child td{border-bottom:none}
         <button class="btn btn-secondary btn-sm" onclick="addUmRow()">+ Add Row</button>
         <button class="btn btn-secondary btn-sm" id="delModeBtn-um" onclick="toggleDeleteMode('um')">🗑 Delete Rows</button>
         <button class="btn btn-danger btn-sm" id="delSelBtn-um" onclick="deleteSelected('um')" style="display:none">Delete Selected</button>
+        <button class="btn btn-secondary btn-sm" id="selAllBtn-um" onclick="selectAllInSection('um')" style="display:none">Select All</button>
         <span class="row-count" id="umRowCount">0 rows</span>
       </div>
       <div class="grid-wrap"><div id="umGridContainer"></div></div>
@@ -388,6 +390,23 @@ table.fref tr:last-child td{border-bottom:none}
       <!-- Coverage summary -->
       <div id="schCoverageWrap" style="margin-bottom:10px"></div>
 
+      <!-- Global dates card -->
+      <div class="card" style="padding:12px;background:#f9fafb;margin-bottom:12px">
+        <div class="card-title" style="margin-bottom:8px"><span class="card-title-left">📅 Schedule Dates <span style="font-size:11px;font-weight:400;color:#9ca3af">(same for all rows — apply once)</span></span></div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end">
+          <div class="fld-group" style="margin-bottom:0">
+            <label class="fld-label">Start Date</label>
+            <input type="text" id="schGlobalStartDate" placeholder="YYYY-MM-DD" style="width:148px" oninput="setSchGlobalDate('startDate',this.value)">
+          </div>
+          <div class="fld-group" style="margin-bottom:0">
+            <label class="fld-label">End Date</label>
+            <input type="text" id="schGlobalEndDate" placeholder="YYYY-MM-DD" style="width:148px" oninput="setSchGlobalDate('endDate',this.value)">
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="applySchGlobalDates()">Apply to all rows</button>
+          <span id="schGlobalDateStatus" style="font-size:12px;color:#6b7280"></span>
+        </div>
+      </div>
+
       <!-- Auto-fill card -->
       <div class="card" style="padding:12px;background:#f9fafb;margin-bottom:12px">
         <div class="card-title" style="margin-bottom:8px"><span class="card-title-left">⚡ Auto-fill from Store Master &amp; User Master</span></div>
@@ -411,6 +430,7 @@ table.fref tr:last-child td{border-bottom:none}
         <button class="btn btn-secondary btn-sm" onclick="addSchRow()">+ Add Row Manually</button>
         <button class="btn btn-secondary btn-sm" id="delModeBtn-sch" onclick="toggleDeleteMode('sch')">🗑 Delete Rows</button>
         <button class="btn btn-danger btn-sm" id="delSelBtn-sch" onclick="deleteSelected('sch')" style="display:none">Delete Selected</button>
+        <button class="btn btn-secondary btn-sm" id="selAllBtn-sch" onclick="selectAllInSection('sch')" style="display:none">Select All</button>
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
           <label style="font-size:12px;color:#6b7280;white-space:nowrap">Set all frequencies:</label>
           <select id="schBulkFreq" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">
@@ -540,8 +560,10 @@ table.fref tr:last-child td{border-bottom:none}
     <div class="grid-toolbar" style="flex-wrap:wrap;gap:6px">
       <button class="btn btn-secondary btn-sm" id="delModeBtn-sku" onclick="toggleDeleteMode('sku')">🗑 Delete Rows</button>
       <button class="btn btn-danger btn-sm" id="delSelBtn-sku" onclick="deleteSelected('sku')" style="display:none">Delete Selected</button>
+      <button class="btn btn-secondary btn-sm" id="selAllBtn-sku" onclick="selectAllInSection('sku')" style="display:none">Select All</button>
       <span class="row-count" id="skuRowCount">0 rows</span>
     </div>
+    <div id="skuSummaryWrap" style="margin-bottom:10px"></div>
     <div class="grid-wrap"><div id="skuGridContainer"></div></div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="confirmSkuData()" style="min-width:200px">✅ Confirm SKU Assortment</button>
@@ -606,6 +628,7 @@ table.fref tr:last-child td{border-bottom:none}
       <button class="btn btn-secondary btn-sm" onclick="addSamRow()">+ Add Row</button>
       <button class="btn btn-secondary btn-sm" id="delModeBtn-sam" onclick="toggleDeleteMode('sam')">🗑 Delete Rows</button>
       <button class="btn btn-danger btn-sm" id="delSelBtn-sam" onclick="deleteSelected('sam')" style="display:none">Delete Selected</button>
+      <button class="btn btn-secondary btn-sm" id="selAllBtn-sam" onclick="selectAllInSection('sam')" style="display:none">Select All</button>
       <span class="row-count" id="samRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="samGridContainer"></div></div>
@@ -665,6 +688,7 @@ table.fref tr:last-child td{border-bottom:none}
       <button class="btn btn-secondary btn-sm" onclick="addSvRow()">+ Add Row</button>
       <button class="btn btn-secondary btn-sm" id="delModeBtn-sv" onclick="toggleDeleteMode('sv')">🗑 Delete Rows</button>
       <button class="btn btn-danger btn-sm" id="delSelBtn-sv" onclick="deleteSelected('sv')" style="display:none">Delete Selected</button>
+      <button class="btn btn-secondary btn-sm" id="selAllBtn-sv" onclick="selectAllInSection('sv')" style="display:none">Select All</button>
       <span class="row-count" id="svRowCount">0 rows</span>
     </div>
     <div class="grid-wrap"><div id="svGridContainer"></div></div>
@@ -728,7 +752,7 @@ const S = {
   confirmed: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
   sm: { rows: [], customHeaders: Array(12).fill('') },
   um: { rows: [] },
-  sch: { rows: [] },
+  sch: { rows: [], globalStartDate: '', globalEndDate: '' },
   sku: { mode: 'category', useAssortment: null, rows: [], reservedSelected: ['Others'] },
   sam: { rows: [] },
   sv: { rows: [] }
@@ -941,7 +965,19 @@ function applyMappingCore(section, data, wrap) {
     return row;
   });
   if (section === 'sm') { S.sm.rows.push(...rows); resetConfirm('sm'); renderSmGrid(); }
-  else if (section === 'um') { S.um.rows.push(...rows); resetConfirm('um'); renderUmGrid(); }
+  else if (section === 'um') {
+    const existIds = new Set(S.um.rows.map(r=>r.userId.trim()).filter(Boolean));
+    const seenNew = new Set();
+    const deduped = rows.filter(r => {
+      const id = r.userId.trim();
+      if (!id) return true;
+      if (existIds.has(id)||seenNew.has(id)) return false;
+      seenNew.add(id); return true;
+    });
+    const skipped = rows.length - deduped.length;
+    S.um.rows.push(...deduped); resetConfirm('um'); renderUmGrid();
+    if (skipped>0) { const w=document.getElementById('umAutoGenWrap'); if(w) w.insertAdjacentHTML('afterbegin',`<div class="alert alert-warn" style="margin-bottom:8px">⚠️ ${skipped} duplicate User ID(s) in the uploaded file were skipped.</div>`); }
+  }
   else if (section === 'sch') {
     // Resolve userName → userId for rows where userId is blank but userName was mapped
     rows.forEach(row => {
@@ -1267,14 +1303,23 @@ function renderUmGrid() {
 }
 
 function validateUmRows() {
-  const errors={}, seenIds={};
+  const errors={}, seenIds={}, pwdToUser={}, userToPwd={};
   S.um.rows.forEach(row => {
     const e={};
-    if (!row.userId.trim()) e.userId='User ID required';
-    else if (seenIds[row.userId.trim()]) e.userId='User ID must be unique';
-    else seenIds[row.userId.trim()]=true;
+    const uid=row.userId.trim(), pwd=row.password.trim();
+    if (!uid) e.userId='User ID required';
+    else if (seenIds[uid]) e.userId='User ID must be unique';
+    else seenIds[uid]=true;
     if (!row.userName.trim()) e.userName='User Name required';
-    if (!row.password.trim()) e.password='Password required';
+    if (!pwd) { e.password='Password required'; }
+    else {
+      // No two users share the same password
+      if (pwdToUser[pwd] && pwdToUser[pwd]!==uid) e.password=`Password already used by ${pwdToUser[pwd]}`;
+      else if (!pwdToUser[pwd]) pwdToUser[pwd]=uid||'?';
+      // No user has multiple passwords
+      if (uid && userToPwd[uid] && userToPwd[uid]!==pwd) e.password=(e.password?e.password+'; ':'')+'User already has a different password in another row';
+      else if (uid && !userToPwd[uid]) userToPwd[uid]=pwd;
+    }
     if (row.monthlyDays && isNaN(Number(row.monthlyDays))) e.monthlyDays='Must be numeric';
     if (Object.keys(e).length) errors[row.id]=e;
   });
@@ -1600,6 +1645,31 @@ function resetSchAutoFillPanel(){
   window._schAssignRows=null;
 }
 
+function setSchGlobalDate(key, val) {
+  if (key==='startDate') S.sch.globalStartDate=val; else S.sch.globalEndDate=val;
+  const status=document.getElementById('schGlobalDateStatus');
+  if (!status) return;
+  const badStart=S.sch.globalStartDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalStartDate);
+  const badEnd=S.sch.globalEndDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalEndDate);
+  if (badStart||badEnd) status.innerHTML='<span style="color:#ef4444">⛔ Invalid format — use YYYY-MM-DD</span>';
+  else if (S.sch.globalStartDate||S.sch.globalEndDate) status.textContent='Click "Apply to all rows" to push to grid.';
+  else status.textContent='';
+}
+
+function applySchGlobalDates() {
+  const badStart=S.sch.globalStartDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalStartDate);
+  const badEnd=S.sch.globalEndDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalEndDate);
+  if (badStart||badEnd){alert('Fix date format (YYYY-MM-DD) before applying.');return;}
+  if (!S.sch.globalStartDate&&!S.sch.globalEndDate){alert('Enter at least one date first.');return;}
+  S.sch.rows.forEach(r=>{
+    if (S.sch.globalStartDate) r.startDate=S.sch.globalStartDate;
+    if (S.sch.globalEndDate) r.endDate=S.sch.globalEndDate;
+  });
+  resetConfirm('sch'); renderSchGrid();
+  const status=document.getElementById('schGlobalDateStatus');
+  if (status) status.innerHTML=`<span style="color:#16a34a">✅ Applied to ${S.sch.rows.length} row(s).</span>`;
+}
+
 // ============================================================
 // SECTION 4: SKU ASSORTMENT
 // ============================================================
@@ -1719,18 +1789,14 @@ function toggleReservedClass(name, checked) {
   if (cls.mandatory && !checked) { alert('"Others" is mandatory and cannot be removed.'); renderReservedClassPicker(); return; }
   if (checked) {
     if (!S.sku.reservedSelected.includes(name)) S.sku.reservedSelected.push(name);
-    // Add a row for this class if none exists
-    if (!S.sku.rows.some(r=>r.skuName===name&&r.skuType==='reserved')) {
-      const row = makeRow('sku');
-      row.skuType = 'reserved'; row.skuName = name; row.regularOsa = cls.regularOsa; row.sos = cls.sos;
-      S.sku.rows.push(row);
-    }
   } else {
     S.sku.reservedSelected = S.sku.reservedSelected.filter(n=>n!==name);
+    // Remove rows immediately; syncReservedRows will clean up the rest on next render
+    S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===name));
   }
   resetConfirm('sku');
   renderReservedClassPicker();
-  renderSkuGrid();
+  renderSkuGrid(); // syncReservedRows runs inside renderSkuGrid
   updateDots();
 }
 
@@ -1753,8 +1819,8 @@ function renderReservedClassPicker() {
     </div>`;
   });
   html += '</div>';
-  if (S.sku.reservedSelected.includes('Others')) {
-    html += `<div class="alert alert-info" style="margin-top:10px">"Others" must appear once per category in your project. Add one row per category in the grid below and fill in the Category Name.</div>`;
+  if (S.sku.reservedSelected.length) {
+    html += `<div class="alert alert-info" style="margin-top:10px">Selected reserved classes auto-generate one row per category in the grid below. Upload Self/Competitor SKUs first — category names fill in automatically.</div>`;
   }
   wrap.innerHTML = html;
 }
@@ -1762,20 +1828,20 @@ function renderReservedClassPicker() {
 function updateSkuRow(id,key,val) { const r=S.sku.rows.find(r=>r.id===id); if(r){r[key]=val;renderSkuGrid();} }
 
 function renderSkuGrid() {
+  syncReservedRows();
   const c = document.getElementById('skuGridContainer');
   if (!c) return;
   document.getElementById('skuRowCount').textContent = S.sku.rows.length + ' rows';
-  if (!S.sku.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
+  if (!S.sku.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; renderSkuSummary(); return; }
   const isCat = S.sku.mode==='category';
   const errs = validateSkuRows();
   const delMode=S.deleteMode.sku;
   const selfCnt=S.sku.rows.filter(r=>r.skuType==='self').length;
   const compCnt=S.sku.rows.filter(r=>r.skuType==='competitor').length;
-  const resvCnt=S.sku.rows.filter(r=>r.skuType==='reserved').length;
   const sb=document.getElementById('skuSelfCount'); if(sb) sb.textContent=selfCnt+' SKU'+(selfCnt!==1?'s':'');
   const cb=document.getElementById('skuCompCount'); if(cb) cb.textContent=compCnt+' SKU'+(compCnt!==1?'s':'');
   let html = `<table class="grid"><thead><tr>
-    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#skuGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
+    ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#skuGridContainer input[type=checkbox][data-id]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
     <th>#</th><th>Type *</th><th>SKU Name *</th><th>Category Name *</th>
     ${S.sku.useAssortment?`<th>${isCat?'Assortment Name':'Store Metadata Col'}</th>`:''}
     <th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th></tr></thead><tbody>`;
@@ -1785,13 +1851,20 @@ function renderSkuGrid() {
                       row.skuType==='competitor'?`<span class="tag tag-red" style="font-size:10.5px">Competitor</span>`:
                       row.skuType==='reserved'?`<span class="tag" style="background:#f3f4f6;color:#374151;font-size:10.5px">Reserved</span>`:'—';
     const isReserved = row.skuType==='reserved';
+    // Reserved rows: category and assortment are auto-managed (read-only)
+    const catCell = isReserved
+      ? `<td style="background:#f9fafb">${row.categoryName?`<input type="text" value="${escHtml(row.categoryName)}" readonly style="background:#f9fafb;color:#374151;font-style:italic">`:`<span style="color:#9ca3af;font-size:11px;padding:5px 7px;display:block">auto-filled</span>`}</td>`
+      : `<td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSkuRow('${row.id}','categoryName',this.value)"></td>`;
+    const assortCell = isReserved
+      ? `<td style="background:#f9fafb"><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" readonly style="background:#f9fafb;color:#374151;font-style:italic"></td>`
+      : `<td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`;
     html += `<tr>
-      ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
+      ${delMode?(isReserved?'<td class="sel-col" style="background:#f9fafb"></td>':`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`):''}
       <td class="rn">${idx+1}</td>
       <td style="text-align:center;white-space:nowrap">${typeBadge}</td>
       <td class="${e.skuName?'err':''}">${isReserved?`<input type="text" value="${escHtml(row.skuName)}" readonly style="background:#f9fafb;color:#6b7280;font-weight:600">`:`<input type="text" value="${escHtml(row.skuName)}" onchange="updateSkuRow('${row.id}','skuName',this.value)">`}</td>
-      <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSkuRow('${row.id}','categoryName',this.value)" placeholder="${isReserved?'Required — one row per category':''}"></td>
-      ${S.sku.useAssortment?`<td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`:''}
+      ${catCell}
+      ${S.sku.useAssortment?assortCell:''}
       ${flagCell(row,'coreFlag',e)} ${flagCell(row,'npdFlag',e)}
       <td class="${e.regularOsa?'err':''}${isReserved?' warn':''}">${isReserved?`<select onchange="updateSkuRow('${row.id}','regularOsa',this.value)" title="Must be 0 for reserved classes">
         <option value="0" ${row.regularOsa==='0'||!row.regularOsa?'selected':''}>0</option>
@@ -1802,6 +1875,7 @@ function renderSkuGrid() {
   });
   html += '</tbody></table>';
   c.innerHTML = html;
+  renderSkuSummary();
 }
 
 function flagCell(row, key, e) {
@@ -1840,11 +1914,112 @@ function validateSkuRows() {
 
 function getAssortmentNames() {
   const names = new Set();
-  S.sku.rows.forEach(r => {
+  S.sku.rows.filter(r=>r.skuType!=='reserved').forEach(r => {
     const v = S.sku.mode==='category' ? r.assortmentName : r.storeMetaCol;
     if (v && v.trim()) names.add(v.trim());
   });
   return [...names];
+}
+
+// Keeps reserved-class rows in sync with the categories present in non-reserved rows.
+// Called at the start of renderSkuGrid().
+function syncReservedRows() {
+  const nonRes = S.sku.rows.filter(r=>r.skuType!=='reserved');
+  const pairMap = new Map();
+  nonRes.forEach(r => {
+    const cat = r.categoryName.trim();
+    if (!cat) return;
+    const assort = S.sku.useAssortment
+      ? (S.sku.mode==='category' ? r.assortmentName.trim() : r.storeMetaCol.trim())
+      : '';
+    const key = cat+'\x00'+assort;
+    if (!pairMap.has(key)) pairMap.set(key, {cat, assort});
+  });
+  const pairs = [...pairMap.values()];
+
+  RESERVED_SKU_CLASSES.forEach(cls => {
+    // Remove rows for classes that were deselected
+    if (!S.sku.reservedSelected.includes(cls.name)) {
+      S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name));
+      return;
+    }
+    // No categories yet — keep exactly one placeholder row
+    if (!pairs.length) {
+      if (!S.sku.rows.some(r=>r.skuType==='reserved'&&r.skuName===cls.name)) {
+        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
+        S.sku.rows.push(row);
+      }
+      return;
+    }
+    // Categories exist — remove blank placeholders, then sync to pairs
+    S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name&&!r.categoryName.trim()));
+    const existing = S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name);
+    // Add missing pair rows
+    pairs.forEach(({cat,assort}) => {
+      const found = existing.find(r => {
+        const ra = S.sku.useAssortment?(S.sku.mode==='category'?r.assortmentName.trim():r.storeMetaCol.trim()):'';
+        return r.categoryName.trim()===cat && ra===assort;
+      });
+      if (!found) {
+        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
+        row.categoryName=cat;
+        if (S.sku.useAssortment) { if(S.sku.mode==='category') row.assortmentName=assort; else row.storeMetaCol=assort; }
+        S.sku.rows.push(row);
+      }
+    });
+    // Remove stale pair rows
+    S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name&&r.categoryName.trim()).forEach(r => {
+      const ra = S.sku.useAssortment?(S.sku.mode==='category'?r.assortmentName.trim():r.storeMetaCol.trim()):'';
+      if (!pairs.some(({cat,assort})=>r.categoryName.trim()===cat&&ra===assort))
+        S.sku.rows = S.sku.rows.filter(x=>x.id!==r.id);
+    });
+  });
+}
+
+function renderSkuSummary() {
+  const wrap = document.getElementById('skuSummaryWrap');
+  if (!wrap) return;
+  const nonRes = S.sku.rows.filter(r=>r.skuType!=='reserved');
+  const selfCnt=S.sku.rows.filter(r=>r.skuType==='self').length;
+  const compCnt=S.sku.rows.filter(r=>r.skuType==='competitor').length;
+  const resvCnt=S.sku.rows.filter(r=>r.skuType==='reserved').length;
+  if (!S.sku.rows.length) { wrap.innerHTML=''; return; }
+  let html=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:7px 12px;font-size:12px">🟢 <strong>${selfCnt}</strong> Self SKUs</div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:7px 12px;font-size:12px">🔴 <strong>${compCnt}</strong> Competitor SKUs</div>
+    <div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:7px 12px;font-size:12px">🔖 <strong>${resvCnt}</strong> Reserved rows</div>
+  </div>`;
+  if (S.sku.useAssortment) {
+    const groups={};
+    nonRes.forEach(r=>{
+      const a=S.sku.mode==='category'?r.assortmentName.trim():r.storeMetaCol.trim();
+      if (!a) return;
+      if (!groups[a]) groups[a]={cats:new Set(),skus:new Set()};
+      groups[a].cats.add(r.categoryName.trim()); groups[a].skus.add(r.skuName.trim());
+    });
+    const keys=Object.keys(groups);
+    if (keys.length) {
+      html+=`<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">Unique SKUs per assortment <span style="font-weight:400;color:#9ca3af">(verify before confirming)</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">`;
+      keys.forEach(a=>{
+        html+=`<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:7px 12px;font-size:12px">
+          <div style="font-weight:600;color:#374151">${escHtml(a)}</div>
+          <div style="color:#6b7280;margin-top:2px">${groups[a].skus.size} unique SKU(s) · ${groups[a].cats.size} category(s)</div></div>`;
+      });
+      html+=`</div>`;
+    }
+  } else if (nonRes.length) {
+    const catGroups={};
+    nonRes.forEach(r=>{const c=r.categoryName.trim();if(!c)return;if(!catGroups[c])catGroups[c]=new Set();catGroups[c].add(r.skuName.trim());});
+    const keys=Object.keys(catGroups);
+    if (keys.length) {
+      html+=`<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px">Unique SKUs per category <span style="font-weight:400;color:#9ca3af">(verify before confirming)</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">`;
+      keys.forEach(c=>{html+=`<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:7px 12px;font-size:12px"><div style="font-weight:600;color:#374151">${escHtml(c)}</div><div style="color:#6b7280;margin-top:2px">${catGroups[c].size} unique SKU(s)</div></div>`;});
+      html+=`</div>`;
+    }
+  }
+  wrap.innerHTML=html;
 }
 
 // ============================================================
@@ -2055,8 +2230,11 @@ function runValidation() {
 
   // Reserved class checks
   if (S.sku.rows.length) {
-    const hasOthers = S.sku.rows.some(r=>r.skuName.trim()==='Others');
-    if (!hasOthers) results.push({sev:'B',msg:'SKU Assortment: "Others" reserved class is mandatory but missing — add it via the Reserved Classes section.'});
+    const nonResCats = new Set(S.sku.rows.filter(r=>r.skuType!=='reserved').map(r=>r.categoryName.trim()).filter(Boolean));
+    const othersCats = new Set(S.sku.rows.filter(r=>r.skuName.trim()==='Others').map(r=>r.categoryName.trim()).filter(Boolean));
+    const missingOthers = [...nonResCats].filter(c=>!othersCats.has(c));
+    if (missingOthers.length) results.push({sev:'B',msg:`SKU Assortment: "Others" is missing for category(ies): ${missingOthers.join(', ')}.`});
+    else if (!S.sku.rows.some(r=>r.skuName.trim()==='Others')) results.push({sev:'B',msg:'SKU Assortment: "Others" reserved class is mandatory but missing — add it via the Reserved Classes section.'});
     const badReserved = S.sku.rows.filter(r=>RESERVED_NAMES.has(r.skuName.trim())&&r.regularOsa==='1');
     if (badReserved.length) results.push({sev:'B',msg:`SKU Assortment: ${badReserved.length} reserved class row(s) have Regular OSA = 1 — must be 0. Fix in the SKU grid.`});
   }
@@ -2243,6 +2421,8 @@ function loadSession(input) {
       if (!parsed.S) throw new Error('Invalid session file');
       Object.assign(S, parsed.S);
       document.getElementById('projectName').value = S.projectName || '';
+      if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
+      if (S.sch.globalEndDate)   { const el=document.getElementById('schGlobalEndDate');   if(el) el.value=S.sch.globalEndDate; }
       renderSmCustomColInputs(); renderSmGrid(); renderUmGrid(); renderSchGrid();
       renderReservedClassPicker(); renderSkuGrid(); renderSamGrid(); renderSvGrid(); renderDlGrid();
       updateDots();
@@ -2294,16 +2474,18 @@ function toggleDeleteMode(section) {
   S.deleteMode[section] = !S.deleteMode[section];
   const btn = document.getElementById('delModeBtn-'+section);
   const selBtn = document.getElementById('delSelBtn-'+section);
+  const allBtn = document.getElementById('selAllBtn-'+section);
   if (btn) {
     if (S.deleteMode[section]) { btn.textContent='✕ Cancel'; btn.className='btn btn-danger btn-sm'; }
     else { btn.textContent='🗑 Delete Rows'; btn.className='btn btn-secondary btn-sm'; }
   }
   if (selBtn) selBtn.style.display = S.deleteMode[section] ? '' : 'none';
+  if (allBtn) { allBtn.style.display = S.deleteMode[section] ? '' : 'none'; allBtn.textContent='Select All'; }
   renderSectionGrid(section);
 }
 
 function deleteSelected(section) {
-  const ids=[...document.querySelectorAll(`#${section}GridContainer input[type="checkbox"]:checked`)].map(cb=>cb.dataset.id);
+  const ids=[...document.querySelectorAll(`#${section}GridContainer input[type="checkbox"][data-id]:checked`)].map(cb=>cb.dataset.id).filter(Boolean);
   if (!ids.length) { alert('Select at least one row to delete.'); return; }
   if (!confirm(`Delete ${ids.length} selected row(s)?`)) return;
   S[section].rows = S[section].rows.filter(r=>!ids.includes(r.id));
@@ -2312,9 +2494,19 @@ function deleteSelected(section) {
   if (btn){btn.textContent='🗑 Delete Rows';btn.className='btn btn-secondary btn-sm';}
   const selBtn=document.getElementById('delSelBtn-'+section);
   if (selBtn) selBtn.style.display='none';
+  const allBtn=document.getElementById('selAllBtn-'+section);
+  if (allBtn) { allBtn.style.display='none'; allBtn.textContent='Select All'; }
   resetConfirm(section);
   renderSectionGrid(section);
   updateDots();
+}
+
+function selectAllInSection(section) {
+  const cbs=[...document.querySelectorAll(`#${section}GridContainer input[type="checkbox"][data-id]`)];
+  const allChecked = cbs.length>0 && cbs.every(cb=>cb.checked);
+  cbs.forEach(cb=>cb.checked=!allChecked);
+  const btn=document.getElementById('selAllBtn-'+section);
+  if (btn) btn.textContent = allChecked ? 'Select All' : 'Deselect All';
 }
 
 function renderSectionGrid(section) {
@@ -2431,12 +2623,6 @@ function setSkuAssortment(val) {
 // ============================================================
 window.onload = () => {
   renderSmCustomColInputs();
-  // Seed mandatory Others row
-  if (!S.sku.rows.some(r=>r.skuName==='Others'&&r.skuType==='reserved')) {
-    const othersRow = makeRow('sku');
-    othersRow.skuType='reserved'; othersRow.skuName='Others'; othersRow.regularOsa='0'; othersRow.sos='1';
-    S.sku.rows.push(othersRow);
-  }
   renderReservedClassPicker();
   renderDlGrid();
   updateDots();
