@@ -720,56 +720,72 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
 
 <!-- ===================== SECTION 5: STORE-ASSORTMENT MAPPING ===================== -->
 <div class="section" id="t5">
-  <div class="sec-hdr"><h2>Store-Assortment Mapping</h2><p>Link each store to the right product assortment. Output: <code>Store_Assortment_Mapping.csv</code></p></div>
+  <div class="sec-hdr"><h2>Store-Assortment Mapping</h2><p>Link each store to a product assortment and shelf layout. Output: <code>Store_Assortment_Mapping.csv</code></p></div>
 
-  <div class="prereq"><span>⚠️</span><span><strong>Complete Store Master and SKU Assortment first.</strong> Stores and assortment names are pulled from those tabs.</span></div>
+  <div class="alert alert-info" style="margin-bottom:14px"><span>ℹ️</span><span>Stores are pulled from <strong>Store Master (Tab 2)</strong>. Categories are pulled from <strong>SKU Assortment (Tab 4)</strong>. Fill those tabs first for best results — but you can also add rows manually below.</span></div>
 
   <div class="step-guide">
-    <div class="sg-title">What to do on this tab:</div>
+    <div class="sg-title">How to fill this tab:</div>
     <ol>
-      <li>The <strong>Smart Assortment Assigner</strong> below shows all your assortments (from SKU Assortment tab). Click any assortment block to expand it.</li>
-      <li><strong>Check the checkbox</strong> next to each store that should use that assortment. Fill in Category Name and Shelf Section.</li>
-      <li>Rows appear automatically in the table below as you check stores — no need to type them manually.</li>
-      <li>If you added stores or assortments after opening this tab, click <strong>"Refresh"</strong> to reload the list.</li>
+      <li><strong>Define Shelf Combinations</strong> — create named presets (e.g. "General Trade") with the shelf sections and their image links.</li>
+      <li><strong>Assign each store</strong> an assortment and a shelf combination in the Store Assignment table.</li>
+      <li>Click <strong>"Generate SAM Rows"</strong> — one row is created for every Store × Category pair, with shelf sections auto-filled from the combination.</li>
+      <li>Review the output table and confirm when ready.</li>
     </ol>
   </div>
 
+  <!-- CARD 1: Shelf Section Combinations -->
   <div class="card">
-    <div class="card-title"><span class="card-title-left">🔗 Smart Assortment Assigner</span></div>
-    <div class="alert alert-info">Assortment names are pulled from SKU Assortment (Tab 4). Stores are pulled from Store Master (Tab 2). Expand each assortment block and check the stores that should use it.</div>
-    <div id="samSmartAssigner"></div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="renderSamSmartAssigner()">↻ Refresh (if you added stores or assortments after opening this tab)</button>
+    <div class="card-title">
+      <span class="card-title-left">🗂 Shelf Section Combinations</span>
+      <button class="btn btn-secondary btn-sm" onclick="addShelfCombo()">+ Add Combination</button>
+    </div>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Define named presets for shelf layouts. Each combination lists the shelf sections and their image links. Different stores can use different combinations.</p>
+    <div id="samCombosContainer"><p style="font-size:12.5px;color:#9ca3af">No combinations defined yet. Click "Add Combination" to start.</p></div>
   </div>
 
-  <div class="field-ref">
-    <div class="field-ref-hdr" onclick="toggleFieldRef('samRef')">
-      <span>📋 Column reference — Store-Assortment Mapping</span>
-      <span id="samRefToggle" style="font-size:11px;color:#9ca3af">▼ hide</span>
+  <!-- CARD 2: Store Assignment -->
+  <div class="card">
+    <div class="card-title">
+      <span class="card-title-left">🏪 Store Assignment</span>
+      <button class="btn btn-secondary btn-sm" onclick="renderStoreSetup()">↻ Refresh</button>
     </div>
-    <div id="samRef" class="field-ref-body">
-      <table class="fref">
-        <thead><tr><th>Column</th><th>Status</th><th>What to enter</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Shop ID</strong></td><td><span class="req-badge">Required</span></td><td>Must exactly match a Store ID from Store Master.</td></tr>
-          <tr><td><strong>Category Name</strong></td><td><span class="req-badge">Required</span></td><td>The product category being mapped to this store. E.g. <code>Noodles</code></td></tr>
-          <tr><td><strong>Shelf Section</strong></td><td><span class="req-badge">Required</span></td><td>Name of the shelf section where this category is stocked. E.g. <code>Section A</code></td></tr>
-          <tr><td><strong>Assortment Name</strong></td><td><span class="req-badge">Required</span></td><td>Must exactly match an Assortment Name from SKU Assortment (Tab 4).</td></tr>
-          <tr><td><strong>Category Heading</strong></td><td><span class="opt-badge">Optional</span></td><td>A broader heading above the category. E.g. <code>Instant Foods</code></td></tr>
-          <tr><td><strong>Shelf Section Image Links</strong></td><td><span class="opt-badge">Optional</span></td><td>URL(s) of planogram images for this shelf section.</td></tr>
-        </tbody>
-      </table>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a shelf combination to each store. Use the bulk bar to apply the same combination to multiple stores at once.</p>
+
+    <!-- Bulk action bar -->
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Bulk Apply:</span>
+      <select id="bulkComboSel" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px;min-width:160px">
+        <option value="">— select combo —</option>
+      </select>
+      <select id="bulkAssortSel" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px;min-width:160px">
+        <option value="">— select assortment —</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="bulkApplyCombo()">Apply to Checked Stores</button>
+      <span style="font-size:11.5px;color:#9ca3af">Check the boxes next to stores first, then click Apply.</span>
     </div>
+
+    <div id="samStoreSetupContainer"><div class="alert alert-warn">No stores found. Add stores in Store Master (Tab 2) first.</div></div>
   </div>
 
+  <!-- CARD 3: Generate + Output table -->
   <div class="card">
-    <div class="card-title"><span class="card-title-left">Store-Assortment Rows</span></div>
-    <div style="margin-bottom:8px">
+    <div class="card-title"><span class="card-title-left">📋 Store-Assortment Rows</span></div>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="generateSamRows()">⚡ Generate SAM Rows (Store × Category)</button>
+      <span style="font-size:12px;color:#6b7280">Creates one row per store × category combination from the assignments above. Skips combinations already in the table.</span>
+    </div>
+
+    <div class="alert alert-info" style="margin-bottom:10px">You can also upload an existing mapping file:</div>
+    <div style="margin-bottom:10px">
       <div class="upload-zone" style="padding:14px" onclick="document.getElementById('samFile').click()">
-        <strong>Or upload an existing mapping file (CSV or Excel)</strong>
+        <strong>Upload existing SAM file (CSV or Excel)</strong>
       </div>
       <input type="file" id="samFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleUpload(this,'sam')">
       <div id="samMapperWrap"></div>
     </div>
+
     <div class="grid-toolbar">
       <button class="btn btn-secondary btn-sm" onclick="addSamRow()">+ Add Row</button>
       <button class="btn btn-secondary btn-sm" id="delModeBtn-sam" onclick="toggleDeleteMode('sam')">🗑 Delete Rows</button>
@@ -777,6 +793,7 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
       <button class="btn btn-secondary btn-sm" id="selAllBtn-sam" onclick="selectAllInSection('sam')" style="display:none">Select All</button>
       <span class="row-count" id="samRowCount">0 rows</span>
     </div>
+    <div id="samGenStatus" style="margin-bottom:8px"></div>
     <div class="grid-wrap"><div id="samGridContainer"></div></div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="confirmSamData()" style="min-width:220px">✅ Confirm Store-Assortment Mapping</button>
@@ -900,7 +917,7 @@ const S = {
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
   sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [], npdSkuNames: [], coreSkuNames: [] },
-  sam: { rows: [] },
+  sam: { rows: [], shelfCombos: [], storeSetup: [] },
   sv: { rows: [] }
 };
 
@@ -913,7 +930,7 @@ function switchTab(id) {
   if (id === 't2') { renderSmCustomColInputs(); renderSmGrid(); }
   if (id === 't3') { renderUmGrid(); renderSchGrid(); }
   if (id === 't4') { renderReservedClassPicker(); renderUniverseGrid(); if(S.sku.universeConfirmed) renderAssortmentPhase(); renderSkuGrid(); }
-  if (id === 't5') { renderSamSmartAssigner(); renderSamGrid(); }
+  if (id === 't5') { renderShelfCombos(); renderStoreSetup(); renderSamGrid(); }
   if (id === 't6') { renderSvGrid(); }
   if (id === 't7') { renderDlGrid(); }
 }
@@ -2647,73 +2664,212 @@ function renderSkuSummary() {
 // ============================================================
 // SECTION 5: STORE-ASSORTMENT MAPPING
 // ============================================================
-function addSamRow() { S.sam.rows.push(makeRow('sam')); resetConfirm('sam'); renderSamGrid(); updateDots(); }
-function updateSamRow(id,key,val) { const r=S.sam.rows.find(r=>r.id===id); if(r){r[key]=val;renderSamGrid();} }
 
-function renderSamSmartAssigner() {
-  const c = document.getElementById('samSmartAssigner');
-  if (!c) return;
-  const assortments = getAssortmentNames();
-  const stores = S.sm.rows.filter(r=>r.storeId&&r.storeName);
-  if (!assortments.length) { c.innerHTML='<div class="alert alert-warn">No assortment names found. Add data in Section 4 first.</div>'; return; }
-  let html = '';
-  assortments.forEach((assName, ai) => {
-    const blockId = 'samBlock_' + ai;
-    html += `<div class="sam-assortment-block">
-      <div class="sam-assortment-hdr" onclick="toggleSamBlock('${blockId}')">
-        <span>▼</span><span>Assortment: <strong>${escHtml(assName)}</strong></span>
-        <span style="margin-left:auto;font-size:11px;color:#9ca3af;font-weight:400">Select stores below</span>
+// ── Shelf Section Combinations ──
+function addShelfCombo() {
+  if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
+  S.sam.shelfCombos.push({id:'sc_'+uid(), name:'', sections:[{id:'ss_'+uid(), name:'', imageLink:''}]});
+  renderShelfCombos(); updateBulkCombos();
+}
+function removeShelfCombo(id) {
+  S.sam.shelfCombos=S.sam.shelfCombos.filter(c=>c.id!==id);
+  renderShelfCombos(); updateBulkCombos(); renderStoreSetup();
+}
+function updateComboName(id,val) {
+  const c=S.sam.shelfCombos.find(c=>c.id===id); if(c) c.name=val;
+  updateBulkCombos(); renderStoreSetup();
+}
+function addComboSection(comboId) {
+  const c=S.sam.shelfCombos.find(c=>c.id===comboId);
+  if(c) c.sections.push({id:'ss_'+uid(),name:'',imageLink:''});
+  renderShelfCombos();
+}
+function removeComboSection(comboId,secId) {
+  const c=S.sam.shelfCombos.find(c=>c.id===comboId);
+  if(c) c.sections=c.sections.filter(s=>s.id!==secId);
+  renderShelfCombos();
+}
+function updateComboSection(comboId,secId,field,val) {
+  const c=S.sam.shelfCombos.find(c=>c.id===comboId); if(!c) return;
+  const s=c.sections.find(s=>s.id===secId); if(s) s[field]=val;
+}
+function renderShelfCombos() {
+  const c=document.getElementById('samCombosContainer'); if(!c) return;
+  if (!(S.sam.shelfCombos||[]).length) {
+    c.innerHTML='<p style="font-size:12.5px;color:#9ca3af">No combinations defined yet. Click "Add Combination" to start.</p>';
+    return;
+  }
+  c.innerHTML=S.sam.shelfCombos.map(combo=>`
+    <div style="border:1px solid #e5e7eb;border-radius:6px;margin-bottom:10px;overflow:hidden">
+      <div style="background:#f9fafb;padding:9px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #e5e7eb">
+        <strong style="font-size:12px;color:#374151;min-width:100px">Combination Name:</strong>
+        <input type="text" value="${escHtml(combo.name)}" placeholder="e.g. General Trade"
+          style="flex:1;border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12.5px;font-weight:600"
+          oninput="updateComboName('${combo.id}',this.value)">
+        <button class="btn btn-danger btn-sm" onclick="removeShelfCombo('${combo.id}')">Remove</button>
       </div>
-      <div id="${blockId}" class="sam-assortment-body">`;
-    if (!stores.length) { html += '<div class="alert alert-warn" style="margin-bottom:0">No stores in Store Master yet.</div>'; }
-    else {
-      html += `<div style="margin-bottom:8px;font-size:12px;color:#6b7280">Select stores and fill in category/shelf details:</div>`;
-      stores.forEach((store,si) => {
-        const rowKey = `${assName}__${store.storeId}`;
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f3f4f6">
-          <input type="checkbox" id="sc_${ai}_${si}" onchange="toggleSamAssignment('${escAttr(assName)}','${escAttr(store.storeId)}',this.checked)">
-          <label for="sc_${ai}_${si}" style="font-size:12.5px;min-width:180px;cursor:pointer"><strong>${escHtml(store.storeId)}</strong> — ${escHtml(store.storeName)}</label>
-          <input type="text" placeholder="Category Heading" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid #d1d5db;border-radius:4px" oninput="updateSamAssignment('${escAttr(assName)}','${escAttr(store.storeId)}','categoryHeading',this.value)">
-          <input type="text" placeholder="Category Name *" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid #d1d5db;border-radius:4px" oninput="updateSamAssignment('${escAttr(assName)}','${escAttr(store.storeId)}','categoryName',this.value)">
-          <input type="text" placeholder="Shelf Section *" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid #d1d5db;border-radius:4px" oninput="updateSamAssignment('${escAttr(assName)}','${escAttr(store.storeId)}','shelfSection',this.value)">
-          <input type="text" placeholder="Image Links" style="flex:1;padding:4px 7px;font-size:12px;border:1px solid #d1d5db;border-radius:4px" oninput="updateSamAssignment('${escAttr(assName)}','${escAttr(store.storeId)}','shelfImages',this.value)">
-        </div>`;
-      });
-    }
-    html += `</div></div>`;
+      <div style="padding:10px 12px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px">
+          <thead><tr>
+            <th style="text-align:left;padding:5px 8px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Shelf Section Name</th>
+            <th style="text-align:left;padding:5px 8px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Image Link <span style="font-weight:400;color:#9ca3af">(URL or any string value)</span></th>
+            <th style="width:36px;background:#f3f4f6;border:1px solid #e5e7eb"></th>
+          </tr></thead>
+          <tbody>
+          ${combo.sections.map(sec=>`
+            <tr>
+              <td style="border:1px solid #e5e7eb;padding:2px">
+                <input type="text" value="${escHtml(sec.name)}" placeholder="e.g. Eye Level"
+                  style="width:100%;border:none;padding:5px 8px;font-size:12px;background:transparent;outline:none"
+                  oninput="updateComboSection('${combo.id}','${sec.id}','name',this.value)">
+              </td>
+              <td style="border:1px solid #e5e7eb;padding:2px">
+                <input type="text" value="${escHtml(sec.imageLink)}" placeholder="https://... or leave blank"
+                  style="width:100%;border:none;padding:5px 8px;font-size:12px;background:transparent;outline:none"
+                  oninput="updateComboSection('${combo.id}','${sec.id}','imageLink',this.value)">
+              </td>
+              <td style="border:1px solid #e5e7eb;text-align:center;padding:2px">
+                ${combo.sections.length>1?`<button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 7px" onclick="removeComboSection('${combo.id}','${sec.id}')">×</button>`:''}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        <button class="btn btn-secondary btn-sm" onclick="addComboSection('${combo.id}')">+ Add Section</button>
+        <span style="font-size:11px;color:#9ca3af;margin-left:10px">Preview: <em>${combo.sections.map(s=>s.name||'(unnamed)').join(', ')}</em></span>
+      </div>
+    </div>`).join('');
+}
+
+// ── Store Assignment ──
+function updateStoreSetup(storeId,field,val) {
+  if (!S.sam.storeSetup) S.sam.storeSetup=[];
+  let e=S.sam.storeSetup.find(e=>e.storeId===storeId);
+  if (!e) { e={storeId,assortmentName:'',comboId:''}; S.sam.storeSetup.push(e); }
+  e[field]=val;
+}
+function renderStoreSetup() {
+  const c=document.getElementById('samStoreSetupContainer'); if(!c) return;
+  if (!S.sam.storeSetup) S.sam.storeSetup=[];
+  if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
+  const stores=S.sm.rows.filter(r=>r.storeId);
+  if (!stores.length) {
+    c.innerHTML='<div class="alert alert-warn">No stores found. Add stores in Store Master (Tab 2) first.</div>';
+    return;
+  }
+  // Sync storeSetup: add missing, keep existing
+  stores.forEach(s=>{ if(!S.sam.storeSetup.find(e=>e.storeId===s.storeId)) S.sam.storeSetup.push({storeId:s.storeId,assortmentName:'',comboId:''}); });
+  const assortments=getAssortmentNames();
+  let html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+    <thead><tr>
+      <th style="width:36px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:center">
+        <input type="checkbox" id="bulkCheckAll" onchange="document.querySelectorAll('.store-setup-cb').forEach(cb=>cb.checked=this.checked)">
+      </th>
+      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">#</th>
+      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Store</th>
+      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Assortment</th>
+      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Shelf Combination</th>
+    </tr></thead><tbody>`;
+  stores.forEach((store,idx)=>{
+    const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
+    const assOpts=['<option value="">— none —</option>',...assortments.map(a=>`<option value="${escHtml(a)}" ${setup.assortmentName===a?'selected':''}>${escHtml(a)}</option>`)].join('');
+    const comboOpts=['<option value="">— no combo —</option>',...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}" ${setup.comboId===co.id?'selected':''}>${escHtml(co.name)||'(unnamed combo)'}</option>`)].join('');
+    html+=`<tr>
+      <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center">
+        <input type="checkbox" class="store-setup-cb" data-storeid="${escAttr(store.storeId)}">
+      </td>
+      <td style="padding:5px 10px;border:1px solid #e5e7eb;color:#9ca3af;font-size:11px">${idx+1}</td>
+      <td style="padding:5px 10px;border:1px solid #e5e7eb"><strong>${escHtml(store.storeId)}</strong>${store.storeName?` — ${escHtml(store.storeName)}`:''}
+      </td>
+      <td style="padding:4px 8px;border:1px solid #e5e7eb">
+        <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px;background:var(--sel-bg,#fff)"
+          onchange="updateStoreSetup('${escAttr(store.storeId)}','assortmentName',this.value)">${assOpts}</select>
+      </td>
+      <td style="padding:4px 8px;border:1px solid #e5e7eb">
+        <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px;background:var(--sel-bg,#fff)"
+          onchange="updateStoreSetup('${escAttr(store.storeId)}','comboId',this.value)">${comboOpts}</select>
+      </td>
+    </tr>`;
   });
-  c.innerHTML = html;
+  html+='</tbody></table>';
+  c.innerHTML=html;
+  updateBulkCombos();
+}
+function updateBulkCombos() {
+  const bcs=document.getElementById('bulkComboSel');
+  const bas=document.getElementById('bulkAssortSel');
+  if (!bcs||!bas) return;
+  const combos=S.sam.shelfCombos||[];
+  const assortments=getAssortmentNames();
+  bcs.innerHTML='<option value="">— select combo —</option>'+combos.map(c=>`<option value="${escHtml(c.id)}">${escHtml(c.name)||'(unnamed combo)'}</option>`).join('');
+  bas.innerHTML='<option value="">— select assortment —</option>'+assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
+}
+function bulkApplyCombo() {
+  const comboId=document.getElementById('bulkComboSel')?.value||'';
+  const assortmentName=document.getElementById('bulkAssortSel')?.value||'';
+  if (!comboId&&!assortmentName) { alert('Select at least a combo or assortment to apply.'); return; }
+  const checked=[...document.querySelectorAll('.store-setup-cb:checked')].map(cb=>cb.dataset.storeid);
+  if (!checked.length) { alert('Check at least one store first.'); return; }
+  if (!S.sam.storeSetup) S.sam.storeSetup=[];
+  checked.forEach(storeId=>{
+    let e=S.sam.storeSetup.find(e=>e.storeId===storeId);
+    if (!e) { e={storeId,assortmentName:'',comboId:''}; S.sam.storeSetup.push(e); }
+    if (comboId) e.comboId=comboId;
+    if (assortmentName) e.assortmentName=assortmentName;
+  });
+  renderStoreSetup();
 }
 
-function toggleSamBlock(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = el.style.display==='none' ? '' : 'none';
-}
-
-function toggleSamAssignment(assortmentName, shopId, checked) {
-  if (checked) {
-    const existing = S.sam.rows.find(r=>r.assortmentName===assortmentName&&r.shopId===shopId);
-    if (!existing) {
-      const store = S.sm.rows.find(r=>r.storeId===shopId);
-      S.sam.rows.push({...makeRow('sam'), shopId, assortmentName, shopName: store?.storeName||''});
-      resetConfirm('sam'); renderSamGrid(); updateDots();
-    }
-  } else {
-    S.sam.rows = S.sam.rows.filter(r=>!(r.assortmentName===assortmentName&&r.shopId===shopId));
-    resetConfirm('sam'); renderSamGrid(); updateDots();
+// ── Generate SAM rows ──
+function generateSamRows() {
+  if (!S.sam.storeSetup) S.sam.storeSetup=[];
+  if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
+  const categories=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))];
+  if (!categories.length) {
+    const st=document.getElementById('samGenStatus');
+    if(st) st.innerHTML='<div class="alert alert-warn">No categories found in SKU universe (Tab 4). Add SKUs first, or add rows manually below.</div>';
+    return;
+  }
+  let addedCount=0, skippedCount=0;
+  S.sam.storeSetup.forEach(setup=>{
+    const combo=S.sam.shelfCombos.find(c=>c.id===setup.comboId);
+    const shelfSection=combo?combo.sections.map(s=>s.name).filter(Boolean).join(', '):'';
+    const shelfImages=combo?combo.sections.map(s=>s.imageLink).join(', '):'';
+    const store=S.sm.rows.find(r=>r.storeId===setup.storeId);
+    categories.forEach(cat=>{
+      const key=`${setup.storeId}||${cat}||${setup.assortmentName}`;
+      const exists=S.sam.rows.some(r=>r.shopId.trim()===setup.storeId&&r.categoryName.trim()===cat&&r.assortmentName.trim()===setup.assortmentName);
+      if (exists) { skippedCount++; return; }
+      const row=makeRow('sam');
+      row.shopId=setup.storeId;
+      row.categoryName=cat;
+      row.assortmentName=setup.assortmentName||'';
+      row.shelfSection=shelfSection;
+      row.shelfImages=shelfImages;
+      if (store?.storeName) row.shopName=store.storeName;
+      S.sam.rows.push(row);
+      addedCount++;
+    });
+  });
+  resetConfirm('sam'); renderSamGrid(); updateDots();
+  const st=document.getElementById('samGenStatus');
+  if (st) {
+    const parts=[];
+    if (addedCount>0) parts.push(`✅ <strong>${addedCount}</strong> row(s) added.`);
+    if (skippedCount>0) parts.push(`⏭ <strong>${skippedCount}</strong> row(s) already existed and were skipped.`);
+    if (!addedCount&&!skippedCount) parts.push('No store assignments with categories found. Assign combos to stores first.');
+    st.innerHTML=`<div class="alert alert-ok" style="margin-bottom:0">${parts.join(' ')}</div>`;
   }
 }
 
-function updateSamAssignment(assortmentName, shopId, key, val) {
-  const row = S.sam.rows.find(r=>r.assortmentName===assortmentName&&r.shopId===shopId);
-  if (row) { row[key]=val; }
-}
+// ── SAM output table ──
+function addSamRow() { S.sam.rows.push(makeRow('sam')); resetConfirm('sam'); renderSamGrid(); updateDots(); }
+function updateSamRow(id,key,val) { const r=S.sam.rows.find(r=>r.id===id); if(r){r[key]=val;renderSamGrid();} }
 
 function renderSamGrid() {
   const c = document.getElementById('samGridContainer');
   if (!c) return;
   document.getElementById('samRowCount').textContent = S.sam.rows.length + ' rows';
-  if (!S.sam.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
+  if (!S.sam.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Use "Generate SAM Rows" above or add rows manually.</p>'; return; }
   const delMode=S.deleteMode.sam;
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#samGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
@@ -3045,6 +3201,8 @@ function loadSession(input) {
       if (!S.sku.npdSkuNames) S.sku.npdSkuNames=[];
       if (!S.sku.coreSkuNames) S.sku.coreSkuNames=[];
       S.sku.assortmentDefs.forEach(af=>{ if(!af.npdNames) af.npdNames=[]; if(!af.coreNames) af.coreNames=[]; if(!af.subsetNames) af.subsetNames=[]; });
+      if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
+      if (!S.sam.storeSetup) S.sam.storeSetup=[];
       document.getElementById('projectName').value = S.projectName || '';
       if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
       if (S.sch.globalEndDate)   { const el=document.getElementById('schGlobalEndDate');   if(el) el.value=S.sch.globalEndDate; }
