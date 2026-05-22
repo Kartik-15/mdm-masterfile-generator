@@ -534,7 +534,7 @@ table.fref tr:last-child td{border-bottom:none}
   <!-- Reserved Classes -->
   <div class="card">
     <div class="card-title"><span class="card-title-left">🔖 Reserved Class Names</span></div>
-    <p style="font-size:12.5px;color:#374151;margin-bottom:10px"><strong>Others is mandatory</strong> for every category. All reserved classes are auto-added to every assortment for each category present. Regular OSA = 0 and SOS = 1 always.</p>
+    <p style="font-size:12.5px;color:#374151;margin-bottom:10px"><strong>Others is mandatory</strong> for every category. Reserved classes are added <strong>globally — once per category</strong>, without an assortment name. They apply to all assortments and appear as global rows in the output file.</p>
     <div id="reservedClassPicker"></div>
   </div>
 
@@ -551,6 +551,34 @@ table.fref tr:last-child td{border-bottom:none}
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <button class="btn btn-primary" onclick="confirmUniverseData()" style="min-width:200px">✅ Confirm SKU Universe</button>
       <div id="univConfirmResult" style="font-size:12.5px;flex:1"></div>
+    </div>
+  </div>
+
+  <!-- Bulk Flag Lists (Phase 1 — applied across entire universe) -->
+  <div class="card">
+    <div class="card-title"><span class="card-title-left">🏷 Bulk Flag Assignments <span style="font-size:11px;font-weight:400;color:#9ca3af">(optional)</span></span></div>
+    <p style="font-size:12.5px;color:#374151;margin-bottom:12px">Upload a list of SKU names to bulk-set NPD or Core flags across the entire universe. SKUs in the list get flag = <strong>1</strong>; others keep their current value.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card" style="margin-bottom:0;border-top:3px solid #7c3aed">
+        <div class="card-title"><span class="card-title-left" style="color:#7c3aed">NPD Flag List</span></div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">SKUs in this list → NPD = 1 in the universe</p>
+        <div class="upload-zone" style="padding:14px" onclick="document.getElementById('npdGlobalFile').click()">
+          <strong>Upload NPD SKU List</strong><p>CSV or Excel — needs a SKU Name column</p>
+        </div>
+        <input type="file" id="npdGlobalFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'npdFlag','global')">
+        <div id="npdGlobalUploads" style="margin-top:8px"></div>
+        <div id="npdGlobalStatus" style="font-size:12px;margin-top:6px"></div>
+      </div>
+      <div class="card" style="margin-bottom:0;border-top:3px solid #ea580c">
+        <div class="card-title"><span class="card-title-left" style="color:#ea580c">Core Flag List</span></div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:8px">SKUs in this list → Core = 1 in the universe</p>
+        <div class="upload-zone" style="padding:14px" onclick="document.getElementById('coreGlobalFile').click()">
+          <strong>Upload Core SKU List</strong><p>CSV or Excel — needs a SKU Name column</p>
+        </div>
+        <input type="file" id="coreGlobalFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'coreFlag','global')">
+        <div id="coreGlobalUploads" style="margin-top:8px"></div>
+        <div id="coreGlobalStatus" style="font-size:12px;margin-top:6px"></div>
+      </div>
     </div>
   </div>
 
@@ -581,7 +609,7 @@ table.fref tr:last-child td{border-bottom:none}
     <!-- Assortment builder (shown when useAssortment = true) -->
     <div id="skuAssortmentBuilder" style="display:none">
       <div class="alert alert-info" style="margin-bottom:14px">
-        Each assortment file should contain only the <strong>Self SKU names</strong> for that store group. Competitor SKUs and reserved classes from the universe are added automatically for each category present.
+        Each assortment automatically includes the <strong>full universe</strong> (all Self + Competitor SKUs across all categories). Optionally upload per-assortment NPD and Core flag lists below to mark specific SKUs in that assortment.
       </div>
       <div id="assortmentDefsList"></div>
       <button class="btn btn-secondary btn-sm" onclick="addAssortmentDef()" style="margin-bottom:14px">+ Add Assortment</button>
@@ -601,6 +629,14 @@ table.fref tr:last-child td{border-bottom:none}
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="confirmSkuData()" style="min-width:200px">✅ Confirm SKU Assortment</button>
         <div id="skuConfirmResult" style="font-size:12.5px;flex:1"></div>
+      </div>
+    </div>
+
+    <!-- Assortment Preview -->
+    <div class="card">
+      <div class="card-title"><span class="card-title-left">🔍 Assortment Preview <span style="font-size:11px;font-weight:400;color:#9ca3af">(read-only — view any assortment filtered by category)</span></span></div>
+      <div id="assortmentPreviewWrap">
+        <div class="alert alert-info">Define assortments above to preview them here.</div>
       </div>
     </div>
   </div>
@@ -787,7 +823,7 @@ const S = {
   sm: { rows: [], customHeaders: Array(12).fill('') },
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
-  sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [] },
+  sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [], npdSkuNames: [], coreSkuNames: [] },
   sam: { rows: [] },
   sv: { rows: [] }
 };
@@ -1821,36 +1857,34 @@ function buildRows() {
     // No assortments — universe rows are the output directly
     S.sku.universeRows.forEach(r=>S.sku.rows.push({...r, id:uid()}));
     syncReservedRows();
-    renderSkuGrid(); updateDots(); return;
+    renderSkuGrid(); renderAssortmentPreview(); updateDots(); return;
   }
 
-  // With assortments — expand each assortment def
-  const competitors = S.sku.universeRows.filter(r=>r.skuType==='competitor');
+  // With assortments — each assortment gets the FULL universe (all self + all competitors).
+  // Reserved classes are added globally (no assortment) by syncReservedRows.
+  // Per-assortment NPD/Core flag lists apply overrides on top of universe defaults.
   const assKey = S.sku.mode==='category'?'assortmentName':'storeMetaCol';
 
   S.sku.assortmentDefs.forEach(af=>{
     if (!af.assortmentName) return;
-    const selfRows=[];
-    af.skuNames.forEach(name=>{
-      const u=S.sku.universeRows.find(r=>r.skuType==='self'&&r.skuName.trim()===name.trim());
-      if (u) { const nr={...u,id:uid()}; nr[assKey]=af.assortmentName; selfRows.push(nr); }
-    });
-    const cats=new Set(selfRows.map(r=>r.categoryName.trim()).filter(Boolean));
-    S.sku.rows.push(...selfRows);
-    // Auto-add competitors for categories in this assortment
-    competitors.forEach(comp=>{
-      const cat=comp.categoryName.trim();
-      if (!cat||cats.has(cat)) { const nr={...comp,id:uid()}; nr[assKey]=af.assortmentName; S.sku.rows.push(nr); }
+    const npdSet=new Set((af.npdNames||[]).map(n=>n.trim().toLowerCase()));
+    const coreSet=new Set((af.coreNames||[]).map(n=>n.trim().toLowerCase()));
+    S.sku.universeRows.forEach(r=>{
+      const nr={...r,id:uid()};
+      nr[assKey]=af.assortmentName;
+      if (npdSet.size&&npdSet.has(nr.skuName.trim().toLowerCase())) nr.npdFlag='1';
+      if (coreSet.size&&coreSet.has(nr.skuName.trim().toLowerCase())) nr.coreFlag='1';
+      S.sku.rows.push(nr);
     });
   });
   syncReservedRows();
-  renderSkuGrid(); updateDots();
+  renderSkuGrid(); renderAssortmentPreview(); updateDots();
 }
 
 // ── Assortment definitions ──
 function addAssortmentDef() {
   const id='adef_'+uid();
-  S.sku.assortmentDefs.push({id, assortmentName:'', skuNames:[]});
+  S.sku.assortmentDefs.push({id, assortmentName:'', skuNames:[], npdNames:[], coreNames:[]});
   renderAssortmentDefs();
 }
 
@@ -1869,22 +1903,36 @@ function renderAssortmentDefs() {
   if (!S.sku.assortmentDefs.length) { c.innerHTML=''; return; }
   c.innerHTML=S.sku.assortmentDefs.map(af=>`
     <div class="card" style="margin-bottom:10px;border-top:3px solid #2563eb">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <div class="fld-group" style="margin-bottom:0;flex:1;min-width:200px">
           <label class="fld-label">Assortment Name *</label>
           <input type="text" value="${escHtml(af.assortmentName)}" placeholder="e.g. Modern Trade" style="width:100%" oninput="updateAssortmentName('${af.id}',this.value)">
         </div>
         <button class="btn btn-danger btn-sm" style="align-self:flex-end" onclick="removeAssortmentDef('${af.id}')">Remove</button>
       </div>
-      <div class="card" style="padding:12px;background:#f9fafb">
-        <p style="font-size:12px;color:#374151;margin-bottom:8px"><strong>Upload Self SKU list for this assortment</strong> — just the SKU names (the universe flags + competitors + reserved classes are added automatically)</p>
-        <div class="upload-zone" style="padding:14px" onclick="document.getElementById('afile_${af.id}').click()">
-          <strong>Upload assortment SKU list (CSV or Excel)</strong><p style="font-size:11.5px;margin-top:3px">File needs at minimum a SKU Name column</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:8px">All universe SKUs (Self + Competitor, all categories) are included automatically. Use the optional flag lists below to mark specific SKUs for this assortment.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="card" style="padding:12px;background:#faf5ff;border-color:#e9d5ff;margin-bottom:0">
+          <p style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:4px">NPD Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+          <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → NPD = 1 for this assortment</p>
+          <div class="upload-zone" style="padding:10px" onclick="document.getElementById('npdFile_${af.id}').click()">
+            <strong style="font-size:12px">Upload NPD List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+          </div>
+          <input type="file" id="npdFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'npdFlag','assortment','${af.id}')">
+          <div id="npdUploads_${af.id}" style="margin-top:6px"></div>
+          ${(af.npdNames||[]).length?`<div style="font-size:11.5px;color:#7c3aed;margin-top:6px">✓ ${af.npdNames.length} SKU(s) marked as NPD <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','npdNames')">Clear</button></div>`:''}
         </div>
-        <input type="file" id="afile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleAssortmentUpload(this,'${af.id}')" multiple>
-        <div id="afile_uploads_${af.id}" style="margin-top:8px"></div>
+        <div class="card" style="padding:12px;background:#fff7ed;border-color:#fed7aa;margin-bottom:0">
+          <p style="font-size:12px;font-weight:600;color:#ea580c;margin-bottom:4px">Core Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+          <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → Core = 1 for this assortment</p>
+          <div class="upload-zone" style="padding:10px" onclick="document.getElementById('coreFile_${af.id}').click()">
+            <strong style="font-size:12px">Upload Core List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+          </div>
+          <input type="file" id="coreFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'coreFlag','assortment','${af.id}')">
+          <div id="coreUploads_${af.id}" style="margin-top:6px"></div>
+          ${(af.coreNames||[]).length?`<div style="font-size:11.5px;color:#ea580c;margin-top:6px">✓ ${af.coreNames.length} SKU(s) marked as Core <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','coreNames')">Clear</button></div>`:''}
+        </div>
       </div>
-      ${af.skuNames.length?`<div style="margin-top:8px;font-size:12px;color:#374151"><strong>${af.skuNames.length} Self SKU name(s)</strong> loaded. <button class="btn btn-secondary btn-sm" onclick="clearAssortmentSkus('${af.id}')">Clear</button></div>`:''}
     </div>`).join('');
 }
 
@@ -1905,11 +1953,155 @@ function renderAssortmentPhase() {
     const hint=document.getElementById('compOsaHint');
     if (hint) hint.innerHTML=`Regular OSA = <strong>${S.sku.trackCompOsa?'1':'0'}</strong>, SOS = <strong>1</strong> auto-set.`;
   }
+  renderAssortmentPreview();
 }
 
 function clearAssortmentSkus(id) {
   const a=S.sku.assortmentDefs.find(a=>a.id===id); if(!a) return;
   a.skuNames=[]; resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+}
+
+function clearFlagList(defId, listKey) {
+  const af=S.sku.assortmentDefs.find(a=>a.id===defId); if(!af) return;
+  af[listKey]=[]; resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+}
+
+// ── Flag list upload (NPD / Core) — global (universe) or per-assortment ──
+function handleFlagListUpload(input, flagKey, scope, defId) {
+  Array.from(input.files).forEach(file=>{
+    const ext=file.name.split('.').pop().toLowerCase();
+    const processData=(data)=>{
+      const fileKey='_flagFile_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      window[fileKey]={data};
+      const fields=data.length?Object.keys(data[0]):[];
+      const listId=scope==='global'
+        ?(flagKey==='npdFlag'?'npdGlobalUploads':'coreGlobalUploads')
+        :(flagKey==='npdFlag'?'npdUploads_'+defId:'coreUploads_'+defId);
+      const list=document.getElementById(listId); if(!list) return;
+      const itemId='flagItem_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const div=document.createElement('div'); div.id=itemId; div.className='sku-upload-item';
+      div.innerHTML=`<div class="sku-upload-header">
+        <span class="sku-file-name">📄 ${escHtml(file.name)}</span>
+        <span style="font-size:11px;color:#9ca3af">${data.length} rows</span>
+        <button class="btn btn-danger btn-sm" onclick="document.getElementById('${itemId}').remove()">Remove</button>
+      </div>
+      <div class="mapper-wrap" style="margin-top:8px">
+        <div class="mapper-title">Map the SKU Name column</div>
+        <table class="mapper"><thead><tr><th>Your column</th><th>→ Maps to</th></tr></thead><tbody>
+        ${fields.map(f=>{
+          const fl=f.toLowerCase().replace(/[^a-z0-9]/g,'');
+          const guessed=fl.includes('sku')||fl.includes('name')||fl.includes('product')?'skuName':'';
+          return `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
+            <option value="">— skip —</option>
+            <option value="skuName" ${guessed==='skuName'?'selected':''}>* SKU Name</option>
+          </select></td></tr>`;
+        }).join('')}
+        </tbody></table>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="applyFlagListMapping('${fileKey}','${flagKey}','${scope}','${defId||''}','${itemId}')">✓ Apply Flag List</button>
+      </div>`;
+      list.appendChild(div);
+    };
+    if (ext==='csv') Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>processData(stripEmptyRows(r.data))});
+    else { const reader=new FileReader(); reader.onload=e=>{const wb=XLSX.read(e.target.result,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];processData(stripEmptyRows(XLSX.utils.sheet_to_json(ws,{defval:''})));};reader.readAsArrayBuffer(file); }
+  });
+  input.value='';
+}
+
+function applyFlagListMapping(fileKey, flagKey, scope, defId, itemId) {
+  const data=(window[fileKey]||{}).data||[];
+  const item=document.getElementById(itemId); if(!item) return;
+  const selects=item.querySelectorAll('select[data-src]');
+  let nameCol='';
+  selects.forEach(s=>{ if(s.value==='skuName') nameCol=s.dataset.src; });
+  if (!nameCol) { alert('Map the SKU Name column before applying.'); return; }
+  const names=[...new Set(data.map(r=>String(r[nameCol]||'').trim()).filter(Boolean))];
+
+  if (scope==='global') {
+    let matched=0;
+    S.sku.universeRows.forEach(r=>{
+      if (names.some(n=>n.toLowerCase()===r.skuName.trim().toLowerCase())) { r[flagKey]='1'; matched++; }
+    });
+    const statusId=flagKey==='npdFlag'?'npdGlobalStatus':'coreGlobalStatus';
+    const statusEl=document.getElementById(statusId);
+    if (statusEl) statusEl.innerHTML=`<span style="color:#16a34a">✅ ${matched} SKU(s) updated · ${names.length-matched} not found in universe</span>`;
+    resetConfirm('sku'); renderUniverseGrid(); buildRows();
+  } else {
+    const af=S.sku.assortmentDefs.find(a=>a.id===defId); if(!af) return;
+    const listKey=flagKey==='npdFlag'?'npdNames':'coreNames';
+    af[listKey]=[...new Set([...(af[listKey]||[]),...names])];
+    resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+  }
+  item.remove();
+}
+
+// ── Assortment Preview (read-only, with category filter) ──
+function renderAssortmentPreview() {
+  const wrap=document.getElementById('assortmentPreviewWrap'); if(!wrap) return;
+  if (!S.sku.universeConfirmed||!S.sku.useAssortment) {
+    wrap.innerHTML='<div class="alert alert-info">Define assortments above to preview them here.</div>';
+    return;
+  }
+  const assortments=getAssortmentNames();
+  if (!assortments.length) {
+    wrap.innerHTML='<div class="alert alert-warn">No assortments with names defined yet.</div>';
+    return;
+  }
+  const univCats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))].sort();
+  wrap.innerHTML=`<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+    <div class="fld-group" style="margin-bottom:0">
+      <label class="fld-label">Assortment</label>
+      <select id="prevAssortSel" onchange="updateAssortmentPreviewTable()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;min-width:180px">
+        ${assortments.map((a,i)=>`<option value="${escHtml(a)}" ${i===0?'selected':''}>${escHtml(a)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fld-group" style="margin-bottom:0">
+      <label class="fld-label">Category Filter</label>
+      <select id="prevCatSel" onchange="updateAssortmentPreviewTable()" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;min-width:160px">
+        <option value="">All categories</option>
+        ${univCats.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+  <div id="prevTableWrap"></div>`;
+  updateAssortmentPreviewTable();
+}
+
+function updateAssortmentPreviewTable() {
+  const assortSel=document.getElementById('prevAssortSel');
+  const catSel=document.getElementById('prevCatSel');
+  const wrap=document.getElementById('prevTableWrap');
+  if (!assortSel||!wrap) return;
+  const selAssort=assortSel.value;
+  const selCat=catSel?catSel.value:'';
+  const assKey=S.sku.mode==='category'?'assortmentName':'storeMetaCol';
+  let rows=S.sku.rows.filter(r=>r.skuType!=='reserved'&&(r[assKey]||'')=== selAssort);
+  if (selCat) rows=rows.filter(r=>r.categoryName.trim()===selCat);
+  if (!rows.length) { wrap.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows for this selection.</p>'; return; }
+  const selfCnt=rows.filter(r=>r.skuType==='self').length;
+  const compCnt=rows.filter(r=>r.skuType==='competitor').length;
+  let html=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:5px;padding:5px 10px;font-size:12px">🟢 <strong>${selfCnt}</strong> Self</div>
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:5px 10px;font-size:12px">🔴 <strong>${compCnt}</strong> Competitor</div>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:5px;padding:5px 10px;font-size:12px">Total: <strong>${rows.length}</strong></div>
+  </div>
+  <div class="grid-wrap"><table class="grid"><thead><tr>
+    <th>#</th><th>Type</th><th>SKU Name</th><th>Category</th><th>Core</th><th>NPD</th><th>Reg OSA</th><th>SOS</th>
+  </tr></thead><tbody>`;
+  rows.forEach((row,idx)=>{
+    const tb=row.skuType==='self'?`<span class="tag tag-green" style="font-size:10.5px">Self</span>`:`<span class="tag tag-red" style="font-size:10.5px">Competitor</span>`;
+    html+=`<tr>
+      <td class="rn">${idx+1}</td>
+      <td style="text-align:center">${tb}</td>
+      <td><span style="padding:4px 8px;display:block">${escHtml(row.skuName)}</span></td>
+      <td><span style="padding:4px 8px;display:block">${escHtml(row.categoryName)}</span></td>
+      <td style="text-align:center">${row.coreFlag||'—'}</td>
+      <td style="text-align:center">${row.npdFlag||'—'}</td>
+      <td style="text-align:center">${row.regularOsa||'—'}</td>
+      <td style="text-align:center">${row.sos||'—'}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
 }
 
 function handleAssortmentUpload(input, defId) {
@@ -2097,7 +2289,7 @@ function renderReservedClassPicker() {
   });
   html += '</div>';
   if (S.sku.reservedSelected.length) {
-    html += `<div class="alert alert-info" style="margin-top:10px">Selected reserved classes auto-generate one row per category in the grid below. Upload Self/Competitor SKUs first — category names fill in automatically.</div>`;
+    html += `<div class="alert alert-info" style="margin-top:10px">Selected reserved classes generate one global row per category (no assortment name). Categories are taken from the universe above. Reserved rows appear at the bottom of the output grid.</div>`;
   }
   wrap.innerHTML = html;
 }
@@ -2133,7 +2325,7 @@ function renderSkuGrid() {
       ? `<td style="background:#f9fafb">${row.categoryName?`<input type="text" value="${escHtml(row.categoryName)}" readonly style="background:#f9fafb;color:#374151;font-style:italic">`:`<span style="color:#9ca3af;font-size:11px;padding:5px 7px;display:block">auto-filled</span>`}</td>`
       : `<td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSkuRow('${row.id}','categoryName',this.value)"></td>`;
     const assortCell = isReserved
-      ? `<td style="background:#f9fafb"><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" readonly style="background:#f9fafb;color:#374151;font-style:italic"></td>`
+      ? `<td style="background:#f0f9ff;text-align:center"><span style="font-size:11px;color:#0284c7;font-style:italic">— global —</span></td>`
       : `<td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`;
     html += `<tr>
       ${delMode?(isReserved?'<td class="sel-col" style="background:#f9fafb"></td>':`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`):''}
@@ -2198,57 +2390,39 @@ function getAssortmentNames() {
   return [...names];
 }
 
-// Keeps reserved-class rows in sync with the categories present in non-reserved rows.
-// Called at the start of renderSkuGrid().
+// Reserved-class rows are global: one per unique category from the universe (no assortment name).
+// They apply to all assortments and appear without an assortment value in the output.
 function syncReservedRows() {
-  const nonRes = S.sku.rows.filter(r=>r.skuType!=='reserved');
-  const pairMap = new Map();
-  nonRes.forEach(r => {
-    const cat = r.categoryName.trim();
-    if (!cat) return;
-    const assort = S.sku.useAssortment
-      ? (S.sku.mode==='category' ? r.assortmentName.trim() : r.storeMetaCol.trim())
-      : '';
-    const key = cat+'\x00'+assort;
-    if (!pairMap.has(key)) pairMap.set(key, {cat, assort});
-  });
-  const pairs = [...pairMap.values()];
+  const allCats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))];
 
-  RESERVED_SKU_CLASSES.forEach(cls => {
-    // Remove rows for classes that were deselected
+  RESERVED_SKU_CLASSES.forEach(cls=>{
     if (!S.sku.reservedSelected.includes(cls.name)) {
-      S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name));
+      S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name));
       return;
     }
-    // No categories yet — keep exactly one placeholder row
-    if (!pairs.length) {
+    // No categories yet — keep one placeholder (blank category)
+    if (!allCats.length) {
       if (!S.sku.rows.some(r=>r.skuType==='reserved'&&r.skuName===cls.name)) {
         const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
         S.sku.rows.push(row);
       }
       return;
     }
-    // Categories exist — remove blank placeholders, then sync to pairs
-    S.sku.rows = S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name&&!r.categoryName.trim()));
-    const existing = S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name);
-    // Add missing pair rows
-    pairs.forEach(({cat,assort}) => {
-      const found = existing.find(r => {
-        const ra = S.sku.useAssortment?(S.sku.mode==='category'?r.assortmentName.trim():r.storeMetaCol.trim()):'';
-        return r.categoryName.trim()===cat && ra===assort;
-      });
-      if (!found) {
+    // Remove blank placeholders now that categories exist
+    S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name&&!r.categoryName.trim()));
+    const existing=S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name);
+    // Add rows for new categories
+    allCats.forEach(cat=>{
+      if (!existing.find(r=>r.categoryName.trim()===cat)) {
         const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
         row.categoryName=cat;
-        if (S.sku.useAssortment) { if(S.sku.mode==='category') row.assortmentName=assort; else row.storeMetaCol=assort; }
         S.sku.rows.push(row);
       }
     });
-    // Remove stale pair rows
-    S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name&&r.categoryName.trim()).forEach(r => {
-      const ra = S.sku.useAssortment?(S.sku.mode==='category'?r.assortmentName.trim():r.storeMetaCol.trim()):'';
-      if (!pairs.some(({cat,assort})=>r.categoryName.trim()===cat&&ra===assort))
-        S.sku.rows = S.sku.rows.filter(x=>x.id!==r.id);
+    // Remove stale category rows
+    S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name&&r.categoryName.trim()).forEach(r=>{
+      if (!allCats.includes(r.categoryName.trim()))
+        S.sku.rows=S.sku.rows.filter(x=>x.id!==r.id);
     });
   });
 }
@@ -2697,6 +2871,9 @@ function loadSession(input) {
       const parsed = JSON.parse(e.target.result);
       if (!parsed.S) throw new Error('Invalid session file');
       Object.assign(S, parsed.S);
+      if (!S.sku.npdSkuNames) S.sku.npdSkuNames=[];
+      if (!S.sku.coreSkuNames) S.sku.coreSkuNames=[];
+      S.sku.assortmentDefs.forEach(af=>{ if(!af.npdNames) af.npdNames=[]; if(!af.coreNames) af.coreNames=[]; });
       document.getElementById('projectName').value = S.projectName || '';
       if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
       if (S.sch.globalEndDate)   { const el=document.getElementById('schGlobalEndDate');   if(el) el.value=S.sch.globalEndDate; }
@@ -2898,7 +3075,7 @@ function setSkuAssortment(val) {
   if (builder) builder.style.display=val?'':'none';
   renderReservedClassPicker();
   resetConfirm('sku');
-  buildRows();
+  buildRows(); // buildRows calls renderAssortmentPreview internally
 }
 
 // ============================================================
