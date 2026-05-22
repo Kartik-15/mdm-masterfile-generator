@@ -1034,19 +1034,27 @@ function applyMappingCore(section, data, wrap) {
     });
     return row;
   });
+  const parentEl = wrap.parentNode;
   if (section === 'sm') { S.sm.rows.push(...rows); resetConfirm('sm'); renderSmGrid(); }
   else if (section === 'um') {
-    const existIds = new Set(S.um.rows.map(r=>r.userId.trim()).filter(Boolean));
-    const seenNew = new Set();
-    const deduped = rows.filter(r => {
-      const id = r.userId.trim();
-      if (!id) return true;
-      if (existIds.has(id)||seenNew.has(id)) return false;
-      seenNew.add(id); return true;
+    let addedCount=0, updatedCount=0;
+    rows.forEach(r => {
+      const id = r.userId.trim().toLowerCase();
+      if (!id) { S.um.rows.push(r); addedCount++; return; }
+      const existing = S.um.rows.find(e => e.userId.trim().toLowerCase() === id);
+      if (existing) {
+        if (r.userName.trim()) existing.userName = r.userName;
+        if (r.password.trim()) existing.password = r.password;
+        if (r.monthlyDays && r.monthlyDays.trim()) existing.monthlyDays = r.monthlyDays;
+        updatedCount++;
+      } else { S.um.rows.push(r); addedCount++; }
     });
-    const skipped = rows.length - deduped.length;
-    S.um.rows.push(...deduped); resetConfirm('um'); renderUmGrid();
-    if (skipped>0) { const w=document.getElementById('umAutoGenWrap'); if(w) w.insertAdjacentHTML('afterbegin',`<div class="alert alert-warn" style="margin-bottom:8px">⚠️ ${skipped} duplicate User ID(s) in the uploaded file were skipped.</div>`); }
+    resetConfirm('um'); renderUmGrid();
+    if (parentEl && (addedCount>0||updatedCount>0)) {
+      const s=document.createElement('div'); s.className='alert alert-ok'; s.style.marginBottom='8px';
+      s.innerHTML=`${addedCount>0?`✅ <strong>${addedCount}</strong> new user(s) added.`:''} ${updatedCount>0?`🔄 <strong>${updatedCount}</strong> existing user(s) updated.`:''}`.trim();
+      parentEl.insertBefore(s,wrap);
+    }
   }
   else if (section === 'sch') {
     // Resolve userName → userId for rows where userId is blank but userName was mapped
@@ -1056,7 +1064,27 @@ function applyMappingCore(section, data, wrap) {
         if (match) { row.userId = match.userId; row.userName = match.userName; }
       }
     });
-    S.sch.rows.push(...rows); resetConfirm('sch'); renderSchGrid();
+    let addedCount=0, updatedCount=0;
+    rows.forEach(r => {
+      const sid = r.storeId.trim().toLowerCase(), uid2 = r.userId.trim().toLowerCase();
+      if (!sid && !uid2) { S.sch.rows.push(r); addedCount++; return; }
+      const existing = S.sch.rows.find(e =>
+        e.storeId.trim().toLowerCase()===sid && e.userId.trim().toLowerCase()===uid2
+      );
+      if (existing) {
+        if (r.frequency.trim()) existing.frequency = r.frequency;
+        if (r.customInterval.trim()) existing.customInterval = r.customInterval;
+        if (r.startDate.trim()) existing.startDate = r.startDate;
+        if (r.endDate.trim()) existing.endDate = r.endDate;
+        updatedCount++;
+      } else { S.sch.rows.push(r); addedCount++; }
+    });
+    resetConfirm('sch'); renderSchGrid();
+    if (parentEl && (addedCount>0||updatedCount>0)) {
+      const s=document.createElement('div'); s.className='alert alert-ok'; s.style.marginBottom='8px';
+      s.innerHTML=`${addedCount>0?`✅ <strong>${addedCount}</strong> new schedule row(s) added.`:''} ${updatedCount>0?`🔄 <strong>${updatedCount}</strong> existing schedule row(s) updated.`:''}`.trim();
+      parentEl.insertBefore(s,wrap);
+    }
   }
   else if (section === 'sam') { S.sam.rows.push(...rows); resetConfirm('sam'); renderSamGrid(); }
   else if (section === 'sv') { S.sv.rows.push(...rows); resetConfirm('sv'); renderSvGrid(); }
