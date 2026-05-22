@@ -87,11 +87,14 @@ table.mapper td select{padding:3px 7px;border:1px solid #d1d5db;border-radius:4p
 .badge-b{background:#fee2e2;color:#dc2626}
 .badge-w{background:#fef9c3;color:#a16207}
 .badge-ok{background:#dcfce7;color:#15803d}
-.dl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:14px}
+.dl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
 .dl-card{background:#fff;border:1px solid #e5e7eb;border-radius:7px;padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 .dl-card .dl-icon{font-size:22px}
 .dl-card .dl-name{font-weight:600;color:#374151;font-size:12.5px}
 .dl-card .dl-rows{font-size:11px;color:#9ca3af}
+.dl-card details summary{cursor:pointer;color:#2563eb;font-weight:500;font-size:11.5px;user-select:none}
+.dl-card details ul{margin:6px 0 0 16px;padding:0;color:#374151;font-size:11.5px;line-height:1.7}
+.dl-card details ul code{background:#f3f4f6;padding:0 3px;border-radius:3px;font-size:11px}
 input[type=text],input[type=password]{border:1px solid #d1d5db;border-radius:5px;padding:7px 10px;font-size:13px;color:#333;background:#fff;outline:none}
 input[type=text]:focus,input[type=password]:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.1)}
 .fld-group{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
@@ -891,10 +894,11 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
   <div class="step-guide">
     <div class="sg-title">Final steps:</div>
     <ol>
-      <li>Click <strong>"Run Validation"</strong> to check all files for errors.</li>
-      <li>If you see red <strong>BLOCKER</strong> errors — individual files can still be downloaded. The full <strong>ZIP requires all blockers resolved</strong>.</li>
-      <li>Yellow <strong>WARNING</strong> items are non-critical — you can still download, but review them.</li>
-      <li>Once clear, click <strong>"Download All as ZIP"</strong> to get all 6 MDM files in one package — or download individual files.</li>
+      <li><strong>Run Validation first</strong> — required before any file can be downloaded. Errors and warnings appear here and on each file's card below.</li>
+      <li>Red <strong>BLOCKER</strong> errors must be fixed before uploading to MDM. Individual files are still downloadable; the full ZIP is blocked until all blockers are resolved.</li>
+      <li>Yellow <strong>WARNING</strong> items are non-critical — review before uploading, but downloads are not blocked.</li>
+      <li>Expand <strong>"QC guidelines"</strong> on each card to verify the file meets MDM upload requirements before sending.</li>
+      <li>Download individual files or click <strong>"Download All as ZIP"</strong> to export all 6 MDM files at once.</li>
     </ol>
   </div>
 
@@ -908,7 +912,7 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
 
   <div class="card">
     <div class="card-title"><span class="card-title-left">Download Files</span></div>
-    <div id="dlBlockerAlert" class="alert alert-err" style="display:none">⛔ BLOCKER errors found — the full ZIP download is disabled. Individual files below can still be downloaded. Fix blockers to enable ZIP.</div>
+    <div id="dlBlockerAlert" class="alert alert-err" style="display:none">⛔ BLOCKER errors found — fix before uploading to MDM. Individual files are still downloadable; the ZIP is disabled until all blockers are resolved.</div>
     <div id="dlWarnAlert" class="alert alert-warn" style="display:none">⚠️ There are warnings — files are downloadable but review the items above.</div>
     <div class="dl-grid" id="dlGrid"></div>
     <div style="margin-top:14px">
@@ -930,6 +934,7 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
 // ============================================================
 let _id = 1;
 const uid = () => 'r' + (_id++);
+let _lastValidation = null;  // null = not yet run; array = last runValidation() results
 
 const S = {
   projectName: '',
@@ -3157,79 +3162,77 @@ function runValidation() {
   const flagVals = new Set(['','0','1']);
 
   // BLOCKERS
-  if (!S.sm.rows.length) results.push({sev:'B',msg:'Store Master has no rows. All other files depend on it.'});
+  if (!S.sm.rows.length) results.push({sev:'B',file:'sm',msg:'Store Master has no rows. All other files depend on it.'});
 
   const schBadStores = S.sch.rows.filter(r=>r.storeId&&!smIds.has(r.storeId)).map(r=>r.storeId);
-  if (schBadStores.length) results.push({sev:'B',msg:`Schedule Master: ${[...new Set(schBadStores)].join(', ')} not found in Store Master.`});
+  if (schBadStores.length) results.push({sev:'B',file:'sch',msg:`Schedule Master: ${[...new Set(schBadStores)].join(', ')} not found in Store Master.`});
 
   const schBadUsers = S.sch.rows.filter(r=>r.userId&&!umIds.has(r.userId)).map(r=>r.userId);
-  if (schBadUsers.length) results.push({sev:'B',msg:`Schedule Master: User IDs not found in User Master: ${[...new Set(schBadUsers)].join(', ')}`});
+  if (schBadUsers.length) results.push({sev:'B',file:'sch',msg:`Schedule Master: User IDs not found in User Master: ${[...new Set(schBadUsers)].join(', ')}`});
 
   const schCustomNoInterval = S.sch.rows.filter(r=>r.frequency==='custom'&&!r.customInterval.trim());
-  if (schCustomNoInterval.length) results.push({sev:'B',msg:`Schedule Master: ${schCustomNoInterval.length} row(s) have frequency=custom but no Custom Interval.`});
+  if (schCustomNoInterval.length) results.push({sev:'B',file:'sch',msg:`Schedule Master: ${schCustomNoInterval.length} row(s) have frequency=custom but no Custom Interval.`});
 
   const samBadStores = S.sam.rows.filter(r=>r.shopId&&!smIds.has(r.shopId)).map(r=>r.shopId);
-  if (samBadStores.length) results.push({sev:'B',msg:`Store-Assortment Mapping: Shop IDs not in Store Master: ${[...new Set(samBadStores)].join(', ')}`});
+  if (samBadStores.length) results.push({sev:'B',file:'sam',msg:`Store-Assortment Mapping: Shop IDs not in Store Master: ${[...new Set(samBadStores)].join(', ')}`});
 
   const samBadAssortments = S.sam.rows.filter(r=>r.assortmentName&&skuAssortments.size>0&&!skuAssortments.has(r.assortmentName)).map(r=>r.assortmentName);
-  if (samBadAssortments.length) results.push({sev:'B',msg:`Store-Assortment Mapping: Assortment names not found in SKU Assortment: ${[...new Set(samBadAssortments)].join(', ')}`});
+  if (samBadAssortments.length) results.push({sev:'B',file:'sam',msg:`Store-Assortment Mapping: Assortment names not found in SKU Assortment: ${[...new Set(samBadAssortments)].join(', ')}`});
 
   const svBadStores = S.sv.rows.filter(r=>r.shopId&&!smIds.has(r.shopId)).map(r=>r.shopId);
-  if (svBadStores.length) results.push({sev:'B',msg:`Survey Master: Shop IDs not in Store Master: ${[...new Set(svBadStores)].join(', ')}`});
+  if (svBadStores.length) results.push({sev:'B',file:'sv',msg:`Survey Master: Shop IDs not in Store Master: ${[...new Set(svBadStores)].join(', ')}`});
 
   const badFlags = S.sku.rows.filter(r=>['coreFlag','npdFlag','regularOsa','sos'].some(k=>!flagVals.has(r[k])));
-  if (badFlags.length) results.push({sev:'B',msg:`SKU Assortment: ${badFlags.length} row(s) have KPI flags not in {0, 1, blank}.`});
+  if (badFlags.length) results.push({sev:'B',file:'sku',msg:`SKU Assortment: ${badFlags.length} row(s) have KPI flags not in {0, 1, blank}.`});
 
-  // Reserved class checks
   if (S.sku.rows.length) {
     const nonResCats = new Set(S.sku.rows.filter(r=>r.skuType!=='reserved').map(r=>r.categoryName.trim()).filter(Boolean));
     const othersCats = new Set(S.sku.rows.filter(r=>r.skuName.trim()==='Others').map(r=>r.categoryName.trim()).filter(Boolean));
     const missingOthers = [...nonResCats].filter(c=>!othersCats.has(c));
-    if (missingOthers.length) results.push({sev:'B',msg:`SKU Assortment: "Others" is missing for category(ies): ${missingOthers.join(', ')}.`});
-    else if (!S.sku.rows.some(r=>r.skuName.trim()==='Others')) results.push({sev:'B',msg:'SKU Assortment: "Others" reserved class is mandatory but missing — add it via the Reserved Classes section.'});
+    if (missingOthers.length) results.push({sev:'B',file:'sku',msg:`SKU Assortment: "Others" is missing for category(ies): ${missingOthers.join(', ')}.`});
+    else if (!S.sku.rows.some(r=>r.skuName.trim()==='Others')) results.push({sev:'B',file:'sku',msg:'SKU Assortment: "Others" reserved class is mandatory but missing — add it via the Reserved Classes section.'});
     const badReserved = S.sku.rows.filter(r=>RESERVED_NAMES.has(r.skuName.trim())&&r.regularOsa==='1');
-    if (badReserved.length) results.push({sev:'B',msg:`SKU Assortment: ${badReserved.length} reserved class row(s) have Regular OSA = 1 — must be 0. Fix in the SKU grid.`});
+    if (badReserved.length) results.push({sev:'B',file:'sku',msg:`SKU Assortment: ${badReserved.length} reserved class row(s) have Regular OSA = 1 — must be 0. Fix in the SKU grid.`});
   }
 
-  // Also run section-level validation summaries
-  const smErrs = Object.keys(validateSmRows()).length;
-  const umErrs = Object.keys(validateUmRows()).length;
-  const schErrs = Object.keys(validateSchRows()).length;
-  const skuErrs = Object.keys(validateSkuRows()).length;
-  const samErrs = Object.keys(validateSamRows()).length;
-  const svErrs = Object.keys(validateSvRows()).length;
-  if (smErrs) results.push({sev:'B',msg:`Store Master: ${smErrs} row(s) have validation errors.`});
-  if (umErrs) results.push({sev:'B',msg:`User Master: ${umErrs} row(s) have validation errors.`});
-  if (schErrs) results.push({sev:'B',msg:`Schedule Master: ${schErrs} row(s) have validation errors.`});
-  if (skuErrs) results.push({sev:'B',msg:`SKU Assortment: ${skuErrs} row(s) have validation errors.`});
-  if (samErrs) results.push({sev:'B',msg:`Store-Assortment Mapping: ${samErrs} row(s) have validation errors.`});
-  if (svErrs) results.push({sev:'B',msg:`Survey Master: ${svErrs} row(s) have validation errors.`});
+  const smErrs=Object.keys(validateSmRows()).length;
+  const umErrs=Object.keys(validateUmRows()).length;
+  const schErrs=Object.keys(validateSchRows()).length;
+  const skuErrs=Object.keys(validateSkuRows()).length;
+  const samErrs=Object.keys(validateSamRows()).length;
+  const svErrs=Object.keys(validateSvRows()).length;
+  if (smErrs) results.push({sev:'B',file:'sm',msg:`Store Master: ${smErrs} row(s) have validation errors.`});
+  if (umErrs) results.push({sev:'B',file:'um',msg:`User Master: ${umErrs} row(s) have validation errors.`});
+  if (schErrs) results.push({sev:'B',file:'sch',msg:`Schedule Master: ${schErrs} row(s) have validation errors.`});
+  if (skuErrs) results.push({sev:'B',file:'sku',msg:`SKU Assortment: ${skuErrs} row(s) have validation errors.`});
+  if (samErrs) results.push({sev:'B',file:'sam',msg:`Store-Assortment Mapping: ${samErrs} row(s) have validation errors.`});
+  if (svErrs) results.push({sev:'B',file:'sv',msg:`Survey Master: ${svErrs} row(s) have validation errors.`});
 
   // WARNINGS
   const unnamedCols = S.sm.customHeaders.filter((h,i) => {
     const hasData = S.sm.rows.some(r=>r['c'+(i+1)]&&r['c'+(i+1)].trim());
     return hasData && !h.trim();
   });
-  if (unnamedCols.length) results.push({sev:'W',msg:`Store Master: ${unnamedCols.length} custom column(s) with data still have default "Column N" headers.`});
+  if (unnamedCols.length) results.push({sev:'W',file:'sm',msg:`Store Master: ${unnamedCols.length} custom column(s) with data still have default "Column N" headers.`});
 
   const latLngIssues = S.sm.rows.filter(r=>(r.lat&&!r.lng)||(!r.lat&&r.lng));
-  if (latLngIssues.length) results.push({sev:'W',msg:`Store Master: ${latLngIssues.length} row(s) have Lat/Lng as unpaired values.`});
+  if (latLngIssues.length) results.push({sev:'W',file:'sm',msg:`Store Master: ${latLngIssues.length} row(s) have Lat/Lng as unpaired values.`});
 
   const normNames = S.sm.rows.map(r=>r.storeName.trim().toLowerCase().replace(/\s+/g,' '));
   const nameGroups = {};
   normNames.forEach(n => { nameGroups[n] = (nameGroups[n]||0)+1; });
   const fuzzyDups = Object.values(nameGroups).filter(v=>v>1).length;
-  if (fuzzyDups) results.push({sev:'W',msg:`Store Master: ${fuzzyDups} store name(s) appear more than once (possible duplicates or whitespace differences).`});
+  if (fuzzyDups) results.push({sev:'W',file:'sm',msg:`Store Master: ${fuzzyDups} store name(s) appear more than once (possible duplicates or whitespace differences).`});
 
-  // All OK items
   const blockers = results.filter(r=>r.sev==='B').length;
   const warnings = results.filter(r=>r.sev==='W').length;
-  if (!blockers) results.unshift({sev:'OK',msg:'No blockers found. Files are ready to export.'});
-  if (!warnings && !blockers) results.push({sev:'OK',msg:'No warnings. All cross-file references are valid.'});
+  if (!blockers) results.unshift({sev:'OK',file:null,msg:'No blockers found. Files are ready to export.'});
+  if (!warnings && !blockers) results.push({sev:'OK',file:null,msg:'No warnings. All cross-file references are valid.'});
 
+  _lastValidation = results;
   renderValResults(results);
+  renderDlGrid();
 
-  // Update download section
   const dlBlocker = document.getElementById('dlBlockerAlert');
   const dlWarn = document.getElementById('dlWarnAlert');
   if (dlBlocker) dlBlocker.style.display = blockers ? 'flex' : 'none';
@@ -3262,32 +3265,135 @@ function renderValResults(results) {
 // ============================================================
 // EXPORT
 // ============================================================
+const QC_GUIDELINES = {
+  sm: [
+    'Store IDs must be unique within this project — duplicates cause upload rejection.',
+    '<code>Store Type</code>: exactly <code>Digital</code> or <code>Manual</code> (case-sensitive, no other values accepted).',
+    '<code>Test Shop</code>: <code>0</code> = live store · <code>1</code> = QC/sandbox store (excluded from all client reports).',
+    'Latitude/Longitude must always be paired — entering one without the other breaks geo features.',
+    'Custom column headers must be renamed to meaningful names before upload (not left as "Column N").',
+  ],
+  um: [
+    'User IDs must be <strong>globally unique across ALL projects</strong> on the platform — confirm with the MDM admin before upload.',
+    'Every user must have a password set — blank passwords cause on-device login failures silently.',
+    '<code>Monthly Working Days</code>: positive integer (1–31); used for SFA attendance calculations.',
+    'Do not use spaces in User IDs — they cause silent login failures on the mobile app.',
+  ],
+  sch: [
+    'Every live store (<code>Test Shop = 0</code>) must have at least one schedule entry before Go-Live.',
+    '<code>Frequency</code> accepted values: <code>daily</code>, <code>weekly</code>, <code>monthly</code>, <code>custom</code> — exact strings, case-sensitive.',
+    '<code>custom</code> frequency requires a non-blank <code>Custom Interval</code> (number of days between visits).',
+    'Store IDs and User IDs must exactly match Store Master and User Master (case-sensitive).',
+  ],
+  sku: [
+    '<code>Others</code> group is mandatory for every category — it captures all undetected/competitor SKUs in AI predictions.',
+    'KPI flags (<code>Core Flag</code>, <code>NPD Flag</code>, <code>Regular OSA</code>, <code>SOS</code>): only <code>0</code>, <code>1</code>, or blank.',
+    'Reserved classes (<code>Others</code>, <code>Shelf</code>, <code>OutofStock</code>): <code>Regular OSA</code> must be <code>0</code>, not <code>1</code>.',
+    'SKU names are case-sensitive throughout the AI pipeline — use consistent capitalisation across all files.',
+  ],
+  sam: [
+    '<code>Shop ID</code> must exactly match Store Master IDs (case-sensitive).',
+    '<code>Assortment Name</code> must exactly match names in SKU Assortment — leave blank only for Full Universe (all SKUs apply).',
+    'Each store-category combination should appear only once per assortment name (duplicates cause config conflicts).',
+    '<code>Shelf Section</code> values appear as labels in the dashboard — verify spelling and capitalisation.',
+  ],
+  sv: [
+    '<code>Shop ID</code> must match Store Master IDs exactly (case-sensitive).',
+    'Valid <code>Question Type</code> values: <code>text</code>, <code>number</code>, <code>sos</code>, <code>price</code>, <code>date</code>, <code>phototext</code>.',
+    'Leave <code>Answers</code> blank for <code>sos</code>, <code>price</code>, <code>date</code>, and <code>phototext</code> question types.',
+    'Question text appears verbatim in the mobile app — proofread carefully for typos before uploading.',
+  ],
+};
+const FILE_ICONS = {sm:'🏪', um:'👤', sch:'📅', sku:'🏷️', sam:'🗺️', sv:'📝'};
+function fileSummary(key) {
+  switch(key) {
+    case 'sm': {
+      const t=S.sm.rows.length, d=S.sm.rows.filter(r=>r.storeType==='Digital').length, m=S.sm.rows.filter(r=>r.storeType==='Manual').length, tst=S.sm.rows.filter(r=>r.testShop==='1').length;
+      return t ? `${t} stores · ${d} Digital · ${m} Manual · ${tst} test` : 'No rows yet';
+    }
+    case 'um': {
+      const t=S.um.rows.length, p=S.um.rows.filter(r=>r.password.trim()).length;
+      return t ? `${t} users · ${p} with passwords` : 'No rows yet';
+    }
+    case 'sch': {
+      const t=S.sch.rows.length, s=new Set(S.sch.rows.map(r=>r.storeId).filter(Boolean)).size;
+      return t ? `${t} entries · ${s} stores covered` : 'No rows yet';
+    }
+    case 'sku': {
+      const t=S.sku.rows.length, c=new Set(S.sku.rows.map(r=>r.categoryName.trim()).filter(Boolean)).size, a=getAssortmentNames().length;
+      return t ? `${t} SKUs · ${c} categories · ${a} assortments` : 'No rows yet';
+    }
+    case 'sam': {
+      const t=S.sam.rows.length, s=new Set(S.sam.rows.map(r=>r.shopId.trim()).filter(Boolean)).size, c=new Set(S.sam.rows.map(r=>r.categoryName.trim()).filter(Boolean)).size;
+      return t ? `${t} rows · ${s} stores · ${c} categories` : 'No rows yet';
+    }
+    case 'sv': {
+      const t=S.sv.rows.length, s=new Set(S.sv.rows.map(r=>r.shopId.trim()).filter(Boolean)).size;
+      return t ? `${t} questions · ${s} stores` : 'No rows yet';
+    }
+    default: return '';
+  }
+}
+
 function renderDlGrid() {
   const c = document.getElementById('dlGrid');
   if (!c) return;
   const files = [
-    {name:'Store_Master.csv', rows:S.sm.rows.length, fn:exportSM},
-    {name:'User_Master.csv', rows:S.um.rows.length, fn:exportUM},
-    {name:'Schedule_Master.csv', rows:S.sch.rows.length, fn:exportSCH},
-    {name:'SKU_Assortment.csv', rows:S.sku.rows.length, fn:exportSKU},
-    {name:'Store_Assortment_Mapping.csv', rows:S.sam.rows.length, fn:exportSAM},
-    {name:'Survey_Master.csv', rows:S.sv.rows.length, fn:exportSV}
+    {key:'sm',  name:'Store_Master.csv',             fn:exportSM},
+    {key:'um',  name:'User_Master.csv',              fn:exportUM},
+    {key:'sch', name:'Schedule_Master.csv',          fn:exportSCH},
+    {key:'sku', name:'SKU_Assortment.csv',           fn:exportSKU},
+    {key:'sam', name:'Store_Assortment_Mapping.csv', fn:exportSAM},
+    {key:'sv',  name:'Survey_Master.csv',            fn:exportSV}
   ];
-  c.innerHTML = files.map((f,i) => `
-    <div class="dl-card">
-      <div class="dl-icon">📄</div>
-      <div class="dl-name">${f.name}</div>
-      <div class="dl-rows">${f.rows} rows</div>
-      <button class="btn btn-primary btn-sm" onclick="downloadSingle(${i})">⬇ Download</button>
-    </div>`).join('');
   window._dlFiles = files;
+  const validated = _lastValidation !== null;
+  const sevIcons = {B:'🔴', W:'🟡'};
+  c.innerHTML = files.map((f, i) => {
+    const issues = validated ? _lastValidation.filter(r => r.file === f.key) : [];
+    const bl = issues.filter(r=>r.sev==='B').length;
+    const wn = issues.filter(r=>r.sev==='W').length;
+    let badge = validated
+      ? (bl ? `<span class="val-badge badge-b">⛔ ${bl} blocker${bl>1?'s':''}</span>`
+            : wn ? `<span class="val-badge badge-w">⚠ ${wn} warning${wn>1?'s':''}</span>`
+                 : '<span class="val-badge badge-ok">✓ Clean</span>')
+      : '<span class="val-badge" style="background:#f3f4f6;color:#6b7280">Not validated</span>';
+    const issuesHtml = (validated && issues.length)
+      ? `<div style="width:100%;background:#fafafa;border:1px solid #ebebeb;border-radius:5px;padding:7px 9px">${
+          issues.map(r=>`<div style="display:flex;gap:5px;align-items:flex-start;margin-bottom:3px;font-size:11.5px;line-height:1.4">
+            <span style="flex-shrink:0">${sevIcons[r.sev]}</span>
+            <span style="color:#374151">${escHtml(r.msg)}</span>
+          </div>`).join('')}</div>` : '';
+    const qcItems = (QC_GUIDELINES[f.key]||[]).map(g=>`<li>${g}</li>`).join('');
+    const dis = !validated;
+    return `<div class="dl-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:6px">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="font-size:20px">${FILE_ICONS[f.key]||'📄'}</span>
+          <strong style="font-size:12.5px;color:#1f2937">${f.name}</strong>
+        </div>
+        ${badge}
+      </div>
+      <div style="font-size:11.5px;color:#6b7280;width:100%">${fileSummary(f.key)}</div>
+      ${issuesHtml}
+      <details style="width:100%">
+        <summary>📋 QC guidelines before upload</summary>
+        <ul>${qcItems}</ul>
+      </details>
+      <button class="btn btn-primary btn-sm" style="margin-top:2px${dis?';opacity:0.45;cursor:not-allowed':''}" onclick="downloadSingle(${i})" ${dis?'disabled':''} title="${dis?'Run Validation first':''}">⬇ Download</button>
+    </div>`;
+  }).join('');
 }
 
 function downloadSingle(idx) {
+  if (_lastValidation === null) {
+    alert('Please run validation first — click "Run Validation" above, then download.');
+    return;
+  }
   const f = window._dlFiles[idx];
   if (!f) return;
   const csv = f.fn();
-  triggerDownload(csv, f.name, 'text/csv');
+  if (csv) triggerDownload(csv, f.name, 'text/csv');
 }
 
 function exportSM() {
