@@ -6,9 +6,10 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>try{if(localStorage.getItem('mdm_dark')==='1')document.documentElement.style.cssText='background:#0f172a';}catch(e){}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f0f4fb;background-image:radial-gradient(#2563eb1a 1px,transparent 1px);background-size:26px 26px;color:#1a1a2e;font-size:13px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#eef2ff;background-image:radial-gradient(circle at 5% 8%,rgba(99,102,241,.15) 0%,transparent 42%),radial-gradient(circle at 96% 94%,rgba(37,99,235,.1) 0%,transparent 42%),radial-gradient(#3b82f628 1px,transparent 1px);background-size:auto,auto,26px 26px;transition:background-color .3s,color .3s;color:#1a1a2e;font-size:13px}
 body::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#1d4ed8,#2563eb,#3b82f6,#2563eb,#1d4ed8);z-index:999}
 .topbar{background:#fff;border-bottom:1px solid #e0e4ea;padding:0 20px;display:flex;align-items:center;gap:16px;position:sticky;top:3px;z-index:200;box-shadow:0 2px 8px rgba(37,99,235,.08)}
 .topbar-logo{height:22px;width:auto;object-fit:contain;display:block}
@@ -122,6 +123,80 @@ table.fref tr:last-child td{border-bottom:none}
 .ov-step .ov-title{font-size:12px;font-weight:600;color:#374151}
 .ov-step .ov-desc{font-size:11px;color:#9ca3af;margin-top:3px}
 .mapper-req-note{font-size:11.5px;background:#fef2f2;border:1px solid #fecaca;border-radius:5px;padding:7px 10px;margin-bottom:9px;color:#991b1b}
+/* ====== DARK MODE ====== */
+body.dark{background-color:#0f172a;background-image:radial-gradient(circle at 5% 8%,rgba(99,102,241,.15) 0%,transparent 42%),radial-gradient(circle at 96% 94%,rgba(37,99,235,.1) 0%,transparent 42%),radial-gradient(rgba(148,163,184,.08) 1px,transparent 1px);background-size:auto,auto,26px 26px;color:#e2e8f0}
+body.dark .topbar{background:#1e293b;border-color:#334155;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+body.dark .topbar-brand{color:#60a5fa}
+body.dark .topbar-sep{background:#334155}
+body.dark .tab{color:#64748b}
+body.dark .tab:hover{color:#94a3b8}
+body.dark .tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
+body.dark .card{background:#1e293b;border-color:#334155;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+body.dark .card-title{color:#f1f5f9}
+body.dark .sec-hdr h2{color:#f1f5f9}
+body.dark .sec-hdr p{color:#94a3b8}
+body.dark .btn-secondary{background:#273549;color:#e2e8f0;border-color:#475569}
+body.dark .btn-secondary:hover:not(:disabled){background:#334155}
+body.dark .btn-green{background:#052e16;color:#86efac;border-color:#14532d}
+body.dark .btn-green:hover:not(:disabled){background:#14532d}
+body.dark .upload-zone{border-color:#475569;color:#94a3b8}
+body.dark .upload-zone:hover,body.dark .upload-zone.drag{border-color:#60a5fa;background:#1e3a5f;color:#60a5fa}
+body.dark .subtabs{border-color:#334155}
+body.dark .subtab{color:#64748b}
+body.dark .subtab.active{color:#60a5fa;border-color:#60a5fa}
+body.dark .radio-group{border-color:#475569}
+body.dark .radio-opt{color:#64748b;border-color:#475569}
+body.dark .radio-opt.active{background:#1e3a5f;color:#60a5fa}
+body.dark table.grid th{background:#273549;color:#94a3b8;border-color:#334155}
+body.dark table.grid td{border-color:#334155}
+body.dark table.grid td.rn{background:#273549;color:#64748b}
+body.dark table.grid td.del-col{background:#273549}
+body.dark table.grid th.sel-col,body.dark table.grid td.sel-col{background:#273549}
+body.dark table.grid td input,body.dark table.grid td select{color:#e2e8f0}
+body.dark table.grid td input:focus,body.dark table.grid td select:focus{background:#1e3a5f}
+body.dark table.grid td.err{border-color:#ef4444;background:#2d0f0f}
+body.dark table.grid td.warn{border-color:#f59e0b;background:#1f1500}
+body.dark .row-count{color:#475569}
+body.dark .err-tip{color:#f87171}
+body.dark .alert-info{background:#1e3a5f;border-color:#1d4ed8;color:#93c5fd}
+body.dark .alert-warn{background:#1c1400;border-color:#854d0e;color:#fde68a}
+body.dark .alert-err{background:#1c0909;border-color:#7f1d1d;color:#fca5a5}
+body.dark .alert-ok{background:#052e16;border-color:#14532d;color:#86efac}
+body.dark .mapper-wrap{background:#1e293b;border-color:#334155}
+body.dark .mapper-title{color:#94a3b8}
+body.dark table.mapper th{background:#273549;color:#94a3b8;border-color:#334155}
+body.dark table.mapper td{border-color:#273549}
+body.dark table.mapper td select{background:#273549;color:#e2e8f0;border-color:#475569}
+body.dark .sku-upload-item{background:#273549;border-color:#334155}
+body.dark .sku-file-name{color:#e2e8f0}
+body.dark .step-guide{background:#1e3a5f;border-color:#1d4ed8}
+body.dark .step-guide .sg-title,body.dark .step-guide li{color:#93c5fd}
+body.dark .prereq{background:#1c1400;border-color:#ca8a04;color:#fde68a}
+body.dark .field-ref{background:#1e293b;border-color:#334155}
+body.dark .field-ref-hdr{background:#273549;color:#94a3b8;border-color:#334155}
+body.dark table.fref th{background:#273549;color:#94a3b8;border-color:#334155}
+body.dark table.fref td{border-color:#273549;color:#e2e8f0}
+body.dark .req-badge{background:#4c1d1d;color:#fca5a5}
+body.dark .opt-badge{background:#273549;color:#94a3b8}
+body.dark .cond-badge{background:#2d2100;color:#fde68a}
+body.dark .ov-step{background:#1e293b;border-color:#334155}
+body.dark .ov-step .ov-title{color:#e2e8f0}
+body.dark .ov-step .ov-desc{color:#475569}
+body.dark input[type=text],body.dark input[type=password]{background:#273549;color:#e2e8f0;border-color:#475569}
+body.dark input[type=text]:focus,body.dark input[type=password]:focus{border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,.2)}
+body.dark .fld-label{color:#94a3b8}
+body.dark .sam-assortment-block{border-color:#334155}
+body.dark .sam-assortment-hdr{background:#273549;border-color:#334155;color:#e2e8f0}
+body.dark .dl-card{background:#273549;border-color:#334155}
+body.dark .dl-card .dl-name{color:#e2e8f0}
+body.dark .val-item{border-color:#273549}
+body.dark .pd-footer span{color:#475569}
+body.dark .pd-footer img{opacity:.3;filter:grayscale(100%)}
+body.dark code{background:#273549;color:#93c5fd;border-radius:3px;padding:1px 4px}
+body.dark .tag-blue{background:#1e3a5f;color:#93c5fd}
+body.dark .tag-green{background:#052e16;color:#86efac}
+body.dark .tag-red{background:#2d0f0f;color:#fca5a5}
+body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5}
 </style>
 </head>
 <body>
@@ -142,6 +217,7 @@ table.fref tr:last-child td{border-bottom:none}
     <div class="tab" data-tab="t7" onclick="switchTab('t7')"><span class="tab-dot" id="dot-t7"></span>Validate &amp; Download</div>
   </div>
   <div class="topbar-actions">
+    <button class="btn btn-secondary btn-sm" id="darkToggle" onclick="toggleDark()" style="min-width:72px">🌙 Dark</button>
     <button class="btn btn-secondary btn-sm" onclick="saveSession()">💾 Save</button>
     <button class="btn btn-secondary btn-sm" onclick="document.getElementById('loadInput').click()">📂 Load</button>
     <input type="file" id="loadInput" accept=".json" style="display:none" onchange="loadSession(this)">
@@ -1911,9 +1987,11 @@ function buildRows() {
 
   S.sku.assortmentDefs.forEach(af=>{
     if (!af.assortmentName) return;
+    const subsetSet=new Set((af.subsetNames||[]).map(n=>n.trim().toLowerCase()));
     const npdSet=new Set((af.npdNames||[]).map(n=>n.trim().toLowerCase()));
     const coreSet=new Set((af.coreNames||[]).map(n=>n.trim().toLowerCase()));
-    S.sku.universeRows.forEach(r=>{
+    const baseRows=subsetSet.size?S.sku.universeRows.filter(r=>subsetSet.has(r.skuName.trim().toLowerCase())):S.sku.universeRows;
+    baseRows.forEach(r=>{
       const nr={...r,id:uid()};
       nr[assKey]=af.assortmentName;
       if (npdSet.size&&npdSet.has(nr.skuName.trim().toLowerCase())) nr.npdFlag='1';
@@ -1928,7 +2006,7 @@ function buildRows() {
 // ── Assortment definitions ──
 function addAssortmentDef() {
   const id='adef_'+uid();
-  S.sku.assortmentDefs.push({id, assortmentName:'', skuNames:[], npdNames:[], coreNames:[]});
+  S.sku.assortmentDefs.push({id, assortmentName:'', subsetNames:[], npdNames:[], coreNames:[]});
   renderAssortmentDefs();
 }
 
@@ -1954,27 +2032,38 @@ function renderAssortmentDefs() {
         </div>
         <button class="btn btn-danger btn-sm" style="align-self:flex-end" onclick="removeAssortmentDef('${af.id}')">Remove</button>
       </div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:8px">All universe SKUs (Self + Competitor, all categories) are included automatically. Use the optional flag lists below to mark specific SKUs for this assortment.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="card" style="padding:12px;background:#faf5ff;border-color:#e9d5ff;margin-bottom:0">
-          <p style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:4px">NPD Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
-          <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → NPD = 1 for this assortment</p>
-          <div class="upload-zone" style="padding:10px" onclick="document.getElementById('npdFile_${af.id}').click()">
-            <strong style="font-size:12px">Upload NPD List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="padding:12px;background:#eff6ff;border-color:#bfdbfe;margin-bottom:0">
+          <p style="font-size:12px;font-weight:600;color:#1d4ed8;margin-bottom:4px">① SKU Subset <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+          <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Upload a list of SKU names from the universe. Only these SKUs will be included in this assortment. If not uploaded, all universe SKUs are included automatically.</p>
+          <div class="upload-zone" style="padding:10px" onclick="document.getElementById('subsetFile_${af.id}').click()">
+            <strong style="font-size:12px">Upload SKU Subset List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel — one column of SKU names</p>
           </div>
-          <input type="file" id="npdFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'npdFlag','assortment','${af.id}')">
-          <div id="npdUploads_${af.id}" style="margin-top:6px"></div>
-          ${(af.npdNames||[]).length?`<div style="font-size:11.5px;color:#7c3aed;margin-top:6px">✓ ${af.npdNames.length} SKU(s) marked as NPD <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','npdNames')">Clear</button></div>`:''}
+          <input type="file" id="subsetFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'subsetFlag','subset','${af.id}')">
+          <div id="subsetUploads_${af.id}" style="margin-top:6px"></div>
+          ${(af.subsetNames||[]).length?`<div style="font-size:11.5px;color:#1d4ed8;margin-top:6px">✓ ${af.subsetNames.length} SKU(s) in subset <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','subsetNames')">Clear (use full universe)</button></div>`:`<div style="font-size:11.5px;color:#9ca3af;margin-top:6px;font-style:italic">Not uploaded — full universe will be included</div>`}
         </div>
-        <div class="card" style="padding:12px;background:#fff7ed;border-color:#fed7aa;margin-bottom:0">
-          <p style="font-size:12px;font-weight:600;color:#ea580c;margin-bottom:4px">Core Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
-          <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → Core = 1 for this assortment</p>
-          <div class="upload-zone" style="padding:10px" onclick="document.getElementById('coreFile_${af.id}').click()">
-            <strong style="font-size:12px">Upload Core List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="card" style="padding:12px;background:#faf5ff;border-color:#e9d5ff;margin-bottom:0">
+            <p style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:4px">② NPD Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+            <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → NPD = 1 for this assortment only. Only updates flags — does not add rows.</p>
+            <div class="upload-zone" style="padding:10px" onclick="document.getElementById('npdFile_${af.id}').click()">
+              <strong style="font-size:12px">Upload NPD List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+            </div>
+            <input type="file" id="npdFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'npdFlag','assortment','${af.id}')">
+            <div id="npdUploads_${af.id}" style="margin-top:6px"></div>
+            ${(af.npdNames||[]).length?`<div style="font-size:11.5px;color:#7c3aed;margin-top:6px">✓ ${af.npdNames.length} SKU(s) marked as NPD <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','npdNames')">Clear</button></div>`:''}
           </div>
-          <input type="file" id="coreFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'coreFlag','assortment','${af.id}')">
-          <div id="coreUploads_${af.id}" style="margin-top:6px"></div>
-          ${(af.coreNames||[]).length?`<div style="font-size:11.5px;color:#ea580c;margin-top:6px">✓ ${af.coreNames.length} SKU(s) marked as Core <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','coreNames')">Clear</button></div>`:''}
+          <div class="card" style="padding:12px;background:#fff7ed;border-color:#fed7aa;margin-bottom:0">
+            <p style="font-size:12px;font-weight:600;color:#ea580c;margin-bottom:4px">③ Core Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+            <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → Core = 1 for this assortment only. Only updates flags — does not add rows.</p>
+            <div class="upload-zone" style="padding:10px" onclick="document.getElementById('coreFile_${af.id}').click()">
+              <strong style="font-size:12px">Upload Core List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
+            </div>
+            <input type="file" id="coreFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'coreFlag','assortment','${af.id}')">
+            <div id="coreUploads_${af.id}" style="margin-top:6px"></div>
+            ${(af.coreNames||[]).length?`<div style="font-size:11.5px;color:#ea580c;margin-top:6px">✓ ${af.coreNames.length} SKU(s) marked as Core <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','coreNames')">Clear</button></div>`:''}
+          </div>
         </div>
       </div>
     </div>`).join('');
@@ -2020,6 +2109,7 @@ function handleFlagListUpload(input, flagKey, scope, defId) {
       const fields=data.length?Object.keys(data[0]):[];
       const listId=scope==='global'
         ?(flagKey==='npdFlag'?'npdGlobalUploads':'coreGlobalUploads')
+        :scope==='subset'?'subsetUploads_'+defId
         :(flagKey==='npdFlag'?'npdUploads_'+defId:'coreUploads_'+defId);
       const list=document.getElementById(listId); if(!list) return;
       const itemId='flagItem_'+Date.now()+'_'+Math.random().toString(36).slice(2);
@@ -2069,6 +2159,10 @@ function applyFlagListMapping(fileKey, flagKey, scope, defId, itemId) {
     const statusEl=document.getElementById(statusId);
     if (statusEl) statusEl.innerHTML=`<span style="color:#16a34a">✅ ${matched} SKU(s) updated · ${names.length-matched} not found in universe</span>`;
     resetConfirm('sku'); renderUniverseGrid(); buildRows();
+  } else if (scope==='subset') {
+    const af=S.sku.assortmentDefs.find(a=>a.id===defId); if(!af) return;
+    af.subsetNames=[...new Set([...(af.subsetNames||[]),...names])];
+    resetConfirm('sku'); renderAssortmentDefs(); buildRows();
   } else {
     const af=S.sku.assortmentDefs.find(a=>a.id===defId); if(!af) return;
     const listKey=flagKey==='npdFlag'?'npdNames':'coreNames';
@@ -2950,7 +3044,7 @@ function loadSession(input) {
       Object.assign(S, parsed.S);
       if (!S.sku.npdSkuNames) S.sku.npdSkuNames=[];
       if (!S.sku.coreSkuNames) S.sku.coreSkuNames=[];
-      S.sku.assortmentDefs.forEach(af=>{ if(!af.npdNames) af.npdNames=[]; if(!af.coreNames) af.coreNames=[]; });
+      S.sku.assortmentDefs.forEach(af=>{ if(!af.npdNames) af.npdNames=[]; if(!af.coreNames) af.coreNames=[]; if(!af.subsetNames) af.subsetNames=[]; });
       document.getElementById('projectName').value = S.projectName || '';
       if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
       if (S.sch.globalEndDate)   { const el=document.getElementById('schGlobalEndDate');   if(el) el.value=S.sch.globalEndDate; }
@@ -3155,6 +3249,13 @@ function setSkuAssortment(val) {
   buildRows(); // buildRows calls renderAssortmentPreview internally
 }
 
+function toggleDark() {
+  const isDark = document.body.classList.toggle('dark');
+  localStorage.setItem('mdm_dark', isDark ? '1' : '0');
+  const btn = document.getElementById('darkToggle');
+  if (btn) btn.innerHTML = isDark ? '☀️ Light' : '🌙 Dark';
+}
+
 // ============================================================
 // INIT
 // ============================================================
@@ -3163,6 +3264,12 @@ window.onload = () => {
   renderReservedClassPicker();
   renderDlGrid();
   updateDots();
+  if (localStorage.getItem('mdm_dark') === '1') {
+    document.body.classList.add('dark');
+    document.documentElement.style.cssText = '';
+    const btn = document.getElementById('darkToggle');
+    if (btn) btn.innerHTML = '☀️ Light';
+  }
 };
 </script>
 </body>
