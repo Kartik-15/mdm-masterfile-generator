@@ -763,10 +763,19 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
       <span class="card-title-left">🏪 Store Assignment</span>
       <button class="btn btn-secondary btn-sm" onclick="renderStoreSetup()">↻ Refresh</button>
     </div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a shelf combination to each store. Use the bulk bar to apply the same combination to multiple stores at once.</p>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a shelf combination to each store. Assign individually, in bulk using checkboxes, or group stores by hierarchy.</p>
 
-    <!-- Bulk action bar -->
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <!-- Group By control -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Group by:</span>
+      <button class="btn btn-secondary btn-sm gb-btn" data-groupby="" onclick="setGroupBy('')" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;font-weight:600">Individual Stores</button>
+      <button class="btn btn-secondary btn-sm gb-btn" data-groupby="retailer" onclick="setGroupBy('retailer')">Retailer</button>
+      <button class="btn btn-secondary btn-sm gb-btn" data-groupby="regionArea" onclick="setGroupBy('regionArea')">Region</button>
+      <button class="btn btn-secondary btn-sm gb-btn" data-groupby="storeType" onclick="setGroupBy('storeType')">Store Type</button>
+    </div>
+
+    <!-- Bulk action bar (individual view only) -->
+    <div id="samBulkBar" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Bulk Apply:</span>
       <select id="bulkComboSel" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px;min-width:160px">
         <option value="">— select combo —</option>
@@ -930,7 +939,7 @@ const S = {
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
   sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [], npdSkuNames: [], coreSkuNames: [] },
-  sam: { rows: [], shelfSections: [], shelfCombos: [], storeSetup: [] },
+  sam: { rows: [], shelfSections: [], shelfCombos: [], storeSetup: [], groupBy: '' },
   sv: { rows: [] }
 };
 
@@ -2792,6 +2801,37 @@ function renderShelfCombos() {
 }
 
 // ── Store Assignment ──
+function setGroupBy(val) {
+  S.sam.groupBy = val;
+  document.querySelectorAll('.gb-btn').forEach(btn => {
+    const active = btn.dataset.groupby === val;
+    btn.style.background = active ? '#eff6ff' : '';
+    btn.style.color = active ? '#2563eb' : '';
+    btn.style.borderColor = active ? '#bfdbfe' : '';
+    btn.style.fontWeight = active ? '600' : '';
+  });
+  const bar = document.getElementById('samBulkBar');
+  if (bar) bar.style.display = val ? 'none' : '';
+  renderStoreSetup();
+}
+function applyGroupAssignment(gid) {
+  const container = document.getElementById(gid);
+  if (!container) return;
+  const groupByField = container.dataset.groupby;
+  const groupName = container.dataset.groupname;
+  const comboId = document.getElementById(gid+'_combo')?.value || '';
+  const assortmentName = document.getElementById(gid+'_assort')?.value || '';
+  if (!comboId && !assortmentName) { alert('Select at least a combo or assortment to apply.'); return; }
+  if (!S.sam.storeSetup) S.sam.storeSetup = [];
+  const groupStores = S.sm.rows.filter(r => r.storeId && (r[groupByField]||'').trim() === groupName);
+  groupStores.forEach(store => {
+    let e = S.sam.storeSetup.find(e => e.storeId === store.storeId);
+    if (!e) { e = {storeId: store.storeId, assortmentName: '', comboId: ''}; S.sam.storeSetup.push(e); }
+    if (comboId) e.comboId = comboId;
+    if (assortmentName) e.assortmentName = assortmentName;
+  });
+  renderStoreSetup();
+}
 function updateStoreSetup(storeId,field,val) {
   if (!S.sam.storeSetup) S.sam.storeSetup=[];
   let e=S.sam.storeSetup.find(e=>e.storeId===storeId);
@@ -2809,37 +2849,110 @@ function renderStoreSetup() {
   }
   stores.forEach(s=>{ if(!S.sam.storeSetup.find(e=>e.storeId===s.storeId)) S.sam.storeSetup.push({storeId:s.storeId,assortmentName:'',comboId:''}); });
   const assortments=getAssortmentNames();
-  let html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
-    <thead><tr>
-      <th style="width:36px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:center">
-        <input type="checkbox" id="bulkCheckAll" onchange="document.querySelectorAll('.store-setup-cb').forEach(cb=>cb.checked=this.checked)">
-      </th>
-      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">#</th>
-      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Store</th>
-      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Assortment</th>
-      <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151">Shelf Combination</th>
-    </tr></thead><tbody>`;
-  stores.forEach((store,idx)=>{
-    const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
-    const assOpts=['<option value="">— none —</option>',...assortments.map(a=>`<option value="${escHtml(a)}" ${setup.assortmentName===a?'selected':''}>${escHtml(a)}</option>`)].join('');
-    const comboOpts=['<option value="">— no combo —</option>',...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}" ${setup.comboId===co.id?'selected':''}>${escHtml(co.name||'(unnamed combo)')}</option>`)].join('');
-    html+=`<tr>
-      <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center">
-        <input type="checkbox" class="store-setup-cb" data-storeid="${escAttr(store.storeId)}">
-      </td>
-      <td style="padding:5px 10px;border:1px solid #e5e7eb;color:#9ca3af;font-size:11px">${idx+1}</td>
-      <td style="padding:5px 10px;border:1px solid #e5e7eb"><strong>${escHtml(store.storeId)}</strong>${store.storeName?` — ${escHtml(store.storeName)}`:''}</td>
-      <td style="padding:4px 8px;border:1px solid #e5e7eb">
-        <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px"
-          onchange="updateStoreSetup('${escAttr(store.storeId)}','assortmentName',this.value)">${assOpts}</select>
-      </td>
-      <td style="padding:4px 8px;border:1px solid #e5e7eb">
-        <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px"
-          onchange="updateStoreSetup('${escAttr(store.storeId)}','comboId',this.value)">${comboOpts}</select>
-      </td>
-    </tr>`;
-  });
-  html+='</tbody></table>';
+
+  const assOpts=(sel)=>['<option value="">— none —</option>',
+    `<option value="__FULL_UNIVERSE__"${sel==='__FULL_UNIVERSE__'?' selected':''}>⭐ Full Universe (all SKUs)</option>`,
+    ...assortments.map(a=>`<option value="${escHtml(a)}"${sel===a?' selected':''}>${escHtml(a)}</option>`)
+  ].join('');
+  const comboOpts=(sel)=>['<option value="">— no combo —</option>',
+    ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}"${sel===co.id?' selected':''}>${escHtml(co.name||'(unnamed combo)')}</option>`)
+  ].join('');
+  const statusBadge=(setup)=>{
+    const hasA=setup.assortmentName, hasC=setup.comboId;
+    if (hasA&&hasC) return '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ Set</span>';
+    if (hasA||hasC) return '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">⚠ Partial</span>';
+    return '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:10px;font-weight:600">✗ Empty</span>';
+  };
+
+  const groupBy=S.sam.groupBy||'';
+  let html='';
+
+  if (!groupBy) {
+    // ── FLAT VIEW ──
+    html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr>
+        <th style="width:36px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:center">
+          <input type="checkbox" id="bulkCheckAll" onchange="document.querySelectorAll('.store-setup-cb').forEach(cb=>cb.checked=this.checked)">
+        </th>
+        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">#</th>
+        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Store</th>
+        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Assortment</th>
+        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Shelf Combination</th>
+        <th style="width:74px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:center">Status</th>
+      </tr></thead><tbody>`;
+    stores.forEach((store,idx)=>{
+      const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
+      html+=`<tr>
+        <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center">
+          <input type="checkbox" class="store-setup-cb" data-storeid="${escAttr(store.storeId)}">
+        </td>
+        <td style="padding:5px 10px;border:1px solid #e5e7eb;color:#9ca3af;font-size:11px">${idx+1}</td>
+        <td style="padding:5px 10px;border:1px solid #e5e7eb"><strong>${escHtml(store.storeId)}</strong>${store.storeName?` — ${escHtml(store.storeName)}`:''}</td>
+        <td style="padding:4px 8px;border:1px solid #e5e7eb">
+          <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px"
+            onchange="updateStoreSetup('${escAttr(store.storeId)}','assortmentName',this.value)">${assOpts(setup.assortmentName)}</select>
+        </td>
+        <td style="padding:4px 8px;border:1px solid #e5e7eb">
+          <select style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 7px;font-size:12px"
+            onchange="updateStoreSetup('${escAttr(store.storeId)}','comboId',this.value)">${comboOpts(setup.comboId)}</select>
+        </td>
+        <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center">${statusBadge(setup)}</td>
+      </tr>`;
+    });
+    html+='</tbody></table>';
+  } else {
+    // ── GROUPED VIEW ──
+    const groupMap={};
+    stores.forEach(store=>{
+      const key=(store[groupBy]||'').trim()||'(unset)';
+      if(!groupMap[key]) groupMap[key]=[];
+      groupMap[key].push(store);
+    });
+    Object.entries(groupMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([groupName,groupStores],gIdx)=>{
+      const gid='grp_'+gIdx;
+      const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
+      const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
+      const statusSummary=done===groupStores.length
+        ?`<span style="font-size:11px;color:#065f46;font-weight:600">✓ All set (${done}/${groupStores.length})</span>`
+        :(partial>0
+          ?`<span style="font-size:11px;color:#92400e;font-weight:600">${done} set, ${partial} partial, ${groupStores.length-done-partial} empty</span>`
+          :`<span style="font-size:11px;color:#991b1b;font-weight:600">${done}/${groupStores.length} set</span>`);
+      const groupAssOpts=['<option value="">— assortment —</option>',
+        `<option value="__FULL_UNIVERSE__">⭐ Full Universe</option>`,
+        ...assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`)
+      ].join('');
+      const groupComboOpts=['<option value="">— combo —</option>',
+        ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}">${escHtml(co.name||'(unnamed combo)')}</option>`)
+      ].join('');
+      html+=`<div id="${gid}" data-groupby="${escAttr(groupBy)}" data-groupname="${escAttr(groupName)}" style="border:1px solid #e2e8f0;border-radius:7px;margin-bottom:12px;overflow:hidden">
+        <div style="background:#f8fafc;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <strong style="font-size:13px;color:#1e3a5f">${escHtml(groupName)}</strong>
+            <span style="font-size:11.5px;color:#6b7280">${groupStores.length} store${groupStores.length!==1?'s':''}</span>
+            ${statusSummary}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;color:#6b7280;white-space:nowrap">Apply to all:</span>
+            <select id="${gid}_assort" style="border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px;min-width:140px">${groupAssOpts}</select>
+            <select id="${gid}_combo" style="border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px;min-width:140px">${groupComboOpts}</select>
+            <button class="btn btn-primary btn-sm" onclick="applyGroupAssignment('${gid}')">Apply</button>
+          </div>
+        </div>
+        <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px">`;
+      groupStores.forEach(store=>{
+        const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
+        const comboLabel=setup.comboId?(S.sam.shelfCombos.find(c=>c.id===setup.comboId)?.name||'?'):'—';
+        const assLabel=setup.assortmentName==='__FULL_UNIVERSE__'?'⭐ Full Universe':(setup.assortmentName||'—');
+        html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:5px 9px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combo: ${escAttr(comboLabel)}">
+          <span style="color:#374151">${escHtml(store.storeId)}${store.storeName?' — '+escHtml(store.storeName):''}</span>
+          ${statusBadge(setup)}
+        </div>`;
+      });
+      html+=`</div></div>`;
+    });
+    if (!html) html='<div class="alert alert-warn">No stores match the selected grouping field.</div>';
+  }
+
   c.innerHTML=html;
   updateBulkCombos();
 }
@@ -2850,7 +2963,7 @@ function updateBulkCombos() {
   const combos=S.sam.shelfCombos||[];
   const assortments=getAssortmentNames();
   bcs.innerHTML='<option value="">— select combo —</option>'+combos.map(c=>`<option value="${escHtml(c.id)}">${escHtml(c.name||'(unnamed combo)')}</option>`).join('');
-  bas.innerHTML='<option value="">— select assortment —</option>'+assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
+  bas.innerHTML='<option value="">— select assortment —</option><option value="__FULL_UNIVERSE__">⭐ Full Universe (all SKUs)</option>'+assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
 }
 function bulkApplyCombo() {
   const comboId=document.getElementById('bulkComboSel')?.value||'';
@@ -2873,10 +2986,21 @@ function generateSamRows() {
   if (!S.sam.storeSetup) S.sam.storeSetup=[];
   if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
   if (!S.sam.shelfSections) S.sam.shelfSections=[];
+  const st=document.getElementById('samGenStatus');
   const categories=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))];
   if (!categories.length) {
-    const st=document.getElementById('samGenStatus');
     if(st) st.innerHTML='<div class="alert alert-warn" style="margin-bottom:0">No categories found in SKU universe (Tab 4). Add SKUs first, or add rows manually below.</div>';
+    return;
+  }
+  // Validate all stores have complete assignments
+  const allStores=S.sm.rows.filter(r=>r.storeId);
+  const incomplete=allStores.filter(store=>{
+    const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId);
+    return !setup||!setup.assortmentName||!setup.comboId;
+  });
+  if (incomplete.length) {
+    const list=incomplete.slice(0,8).map(s=>escHtml(s.storeId+(s.storeName?' — '+s.storeName:''))).join(', ')+(incomplete.length>8?`, … (${incomplete.length-8} more)`:'');
+    if(st) st.innerHTML=`<div class="alert alert-warn" style="margin-bottom:0">⚠ <strong>${incomplete.length} store(s) missing assignment</strong> (assortment or combo not set): ${list}. Complete all assignments before generating.</div>`;
     return;
   }
   let addedCount=0, skippedCount=0;
@@ -2886,13 +3010,14 @@ function generateSamRows() {
     const shelfSection=sections.map(s=>s.name).filter(Boolean).join(', ');
     const shelfImages=sections.map(s=>s.imageLink||'').join(', ');
     const store=S.sm.rows.find(r=>r.storeId===setup.storeId);
+    const outputAssortment=setup.assortmentName==='__FULL_UNIVERSE__'?'':setup.assortmentName;
     categories.forEach(cat=>{
-      const exists=S.sam.rows.some(r=>r.shopId.trim()===setup.storeId&&r.categoryName.trim()===cat&&r.assortmentName.trim()===setup.assortmentName);
+      const exists=S.sam.rows.some(r=>r.shopId.trim()===setup.storeId&&r.categoryName.trim()===cat&&r.assortmentName.trim()===outputAssortment);
       if (exists) { skippedCount++; return; }
       const row=makeRow('sam');
       row.shopId=setup.storeId;
       row.categoryName=cat;
-      row.assortmentName=setup.assortmentName||'';
+      row.assortmentName=outputAssortment;
       row.shelfSection=shelfSection;
       row.shelfImages=shelfImages;
       if (store?.storeName) row.shopName=store.storeName;
@@ -2901,7 +3026,6 @@ function generateSamRows() {
     });
   });
   resetConfirm('sam'); renderSamGrid(); updateDots();
-  const st=document.getElementById('samGenStatus');
   if (st) {
     const parts=[];
     if (addedCount>0) parts.push(`✅ <strong>${addedCount}</strong> row(s) added.`);
@@ -3254,6 +3378,7 @@ function loadSession(input) {
       if (!S.sam.shelfSections) S.sam.shelfSections=[];
       if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
       if (!S.sam.storeSetup) S.sam.storeSetup=[];
+      if (!S.sam.groupBy) S.sam.groupBy='';
       // Migrate old combo format (inline sections → sectionIds)
       S.sam.shelfCombos.forEach(c=>{
         if (!c.sectionIds && c.sections && c.sections.length) {
