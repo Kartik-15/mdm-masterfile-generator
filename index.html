@@ -919,9 +919,9 @@ const SECTION_COLS = {
 
 const RESERVED_SKU_CLASSES = [
   { name:'Others',      mandatory:true,  sos:'1', regularOsa:'0', desc:'Catch-all for competitor/untracked SKUs — required in every category.' },
-  { name:'Shelf',       mandatory:false, sos:'1', regularOsa:'0', desc:'Shelf fixture detection object.' },
+  { name:'Shelf',       mandatory:false, sos:'0', regularOsa:'0', desc:'Shelf fixture detection object. All flags = 0.' },
   { name:'OutofStock',  mandatory:false, sos:'1', regularOsa:'0', desc:'Empty shelf / out-of-stock position detection.' },
-  { name:'Sticker',     mandatory:false, sos:'1', regularOsa:'0', desc:'Price or promotional sticker detection.' },
+  { name:'Sticker',     mandatory:false, sos:'0', regularOsa:'0', desc:'Price or promotional sticker detection. All flags = 0.' },
   { name:'brand_others',mandatory:false, sos:'1', regularOsa:'0', desc:'Brand-specific others group (use when multiple "others" groups exist for different brands).' },
 ];
 const RESERVED_NAMES = new Set(RESERVED_SKU_CLASSES.map(c=>c.name));
@@ -1820,11 +1820,27 @@ function renderUniverseGrid() {
 
 function validateUniverseRows() {
   const errors={};
+  // Build cross-row maps: skuName.lower → array of rows
+  const nameMap={};
+  S.sku.universeRows.forEach(row=>{
+    const key=row.skuName.trim().toLowerCase();
+    if (!key) return;
+    if (!nameMap[key]) nameMap[key]=[];
+    nameMap[key].push(row);
+  });
   S.sku.universeRows.forEach(row=>{
     const e={};
     if (!row.skuName.trim()) e.skuName='SKU Name required';
     if (!row.categoryName.trim()) e.categoryName='Category Name required';
     if (row.regularOsa!==''&&row.regularOsa!=='0'&&row.regularOsa!=='1') e.regularOsa='Must be 0, 1, or blank';
+    const key=row.skuName.trim().toLowerCase();
+    if (key) {
+      const peers=nameMap[key]||[];
+      const cats=new Set(peers.map(r=>r.categoryName.trim()).filter(Boolean));
+      const types=new Set(peers.map(r=>r.skuType));
+      if (cats.size>1) e.categoryName=`"${row.skuName.trim()}" exists in multiple categories — each SKU must belong to exactly one`;
+      if (types.has('self')&&types.has('competitor')) e.skuName=`"${row.skuName.trim()}" is listed as both Self and Competitor`;
+    }
     if (Object.keys(e).length) errors[row.id]=e;
   });
   return errors;
@@ -2243,10 +2259,37 @@ function applySkuMapping(dataKey, itemId, skuTypeCtx) {
     if (!row.regularOsa.trim()) row.regularOsa = typeCtx==='self' ? '1' : compOsa;
     return row;
   });
-  // Universe upload — push to universeRows
-  S.sku.universeRows.push(...rows);
+  // Universe upload — merge: update flags for existing SKUs, add new ones
+  let addedCount=0, updatedCount=0;
+  rows.forEach(incoming=>{
+    const nameKey=incoming.skuName.trim().toLowerCase();
+    const catKey=incoming.categoryName.trim().toLowerCase();
+    if (!nameKey) { S.sku.universeRows.push(incoming); addedCount++; return; }
+    // Match by skuName (case-insensitive) — same SKU must be in same category
+    const existing=S.sku.universeRows.find(r=>r.skuName.trim().toLowerCase()===nameKey);
+    if (existing) {
+      // Update only the flag columns from the uploaded file (keep skuName, categoryName, skuType)
+      if (incoming.regularOsa.trim()) existing.regularOsa=incoming.regularOsa;
+      if (incoming.sos.trim()) existing.sos=incoming.sos;
+      if (incoming.coreFlag.trim()) existing.coreFlag=incoming.coreFlag;
+      if (incoming.npdFlag.trim()) existing.npdFlag=incoming.npdFlag;
+      updatedCount++;
+    } else {
+      S.sku.universeRows.push(incoming);
+      addedCount++;
+    }
+  });
   S.sku.universeConfirmed = false;
   resetConfirm('sku');
+  // Show import summary inline
+  const parentEl=item.parentNode;
+  if (parentEl) {
+    const summary=document.createElement('div');
+    summary.className='alert alert-ok';
+    summary.style.marginBottom='8px';
+    summary.innerHTML=`${addedCount>0?`✅ <strong>${addedCount}</strong> new SKU(s) added.`:''} ${updatedCount>0?`🔄 <strong>${updatedCount}</strong> existing SKU(s) updated with new flags.`:''}`.trim();
+    parentEl.insertBefore(summary,item);
+  }
   renderUniverseGrid(); buildRows(); updateDots();
   item.remove();
 }
@@ -2334,12 +2377,14 @@ function renderSkuGrid() {
       <td class="${e.skuName?'err':''}">${isReserved?`<input type="text" value="${escHtml(row.skuName)}" readonly style="background:#f9fafb;color:#6b7280;font-weight:600">`:`<input type="text" value="${escHtml(row.skuName)}" onchange="updateSkuRow('${row.id}','skuName',this.value)">`}</td>
       ${catCell}
       ${S.sku.useAssortment?assortCell:''}
-      ${flagCell(row,'coreFlag',e)} ${flagCell(row,'npdFlag',e)}
+      ${isReserved
+        ? `<td style="background:#f9fafb;text-align:center"><span style="font-size:11.5px;color:#9ca3af">0</span></td><td style="background:#f9fafb;text-align:center"><span style="font-size:11.5px;color:#9ca3af">0</span></td>`
+        : `${flagCell(row,'coreFlag',e)} ${flagCell(row,'npdFlag',e)}`}
       <td class="${e.regularOsa?'err':''}${isReserved?' warn':''}">${isReserved?`<select onchange="updateSkuRow('${row.id}','regularOsa',this.value)" title="Must be 0 for reserved classes">
         <option value="0" ${row.regularOsa==='0'||!row.regularOsa?'selected':''}>0</option>
         <option value="1" ${row.regularOsa==='1'?'selected':''} style="color:#dc2626">1 ⚠</option>
       </select>`:skuFlagCell(row,'regularOsa',e)}</td>
-      <td class="${e.sos?'err':''}">${skuFlagCell(row,'sos',e)}</td>
+      <td class="${e.sos?'err':''}">${isReserved?`<span style="font-size:11.5px;color:#9ca3af;padding:5px 7px;display:block">${row.sos||'0'}</span>`:skuFlagCell(row,'sos',e)}</td>
     </tr>${Object.values(e).length?`<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
@@ -2400,30 +2445,34 @@ function syncReservedRows() {
       S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name));
       return;
     }
-    // No categories yet — keep one placeholder (blank category)
     if (!allCats.length) {
       if (!S.sku.rows.some(r=>r.skuType==='reserved'&&r.skuName===cls.name)) {
-        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
+        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name;
+        row.regularOsa=cls.regularOsa; row.sos=cls.sos; row.coreFlag='0'; row.npdFlag='0';
         S.sku.rows.push(row);
       }
       return;
     }
-    // Remove blank placeholders now that categories exist
     S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name&&!r.categoryName.trim()));
     const existing=S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name);
-    // Add rows for new categories
     allCats.forEach(cat=>{
       if (!existing.find(r=>r.categoryName.trim()===cat)) {
-        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name; row.regularOsa=cls.regularOsa; row.sos=cls.sos;
+        const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name;
+        row.regularOsa=cls.regularOsa; row.sos=cls.sos; row.coreFlag='0'; row.npdFlag='0';
         row.categoryName=cat;
         S.sku.rows.push(row);
       }
     });
-    // Remove stale category rows
     S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name&&r.categoryName.trim()).forEach(r=>{
       if (!allCats.includes(r.categoryName.trim()))
         S.sku.rows=S.sku.rows.filter(x=>x.id!==r.id);
     });
+  });
+  // Enforce: all reserved rows always have Core=0, NPD=0 and correct SOS/OSA from class definition
+  S.sku.rows.filter(r=>r.skuType==='reserved').forEach(r=>{
+    r.coreFlag='0'; r.npdFlag='0';
+    const cls=RESERVED_SKU_CLASSES.find(c=>c.name===r.skuName);
+    if (cls) { r.sos=cls.sos; r.regularOsa=cls.regularOsa; }
   });
 }
 
