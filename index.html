@@ -431,12 +431,12 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
     <div class="card-title">
       <span class="card-title-left">📊 Add / Update Hierarchy Fields</span>
     </div>
-    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Enrich existing stores with Zone, Channel, Retailer, Territory etc. — without re-importing. Upload a CSV with Store ID + any hierarchy columns. Matching stores are updated in place; stores missing from the file are flagged.</p>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Enrich existing stores with Zone, Channel, Retailer, Territory etc. — without re-importing. Upload a CSV or Excel file with Store ID + any hierarchy columns. Matching stores are updated in place; stores missing from the file are flagged.</p>
     <div class="upload-zone" onclick="document.getElementById('hierEnrichFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleHierEnrichDrop(event)" style="padding:14px 20px">
       📊 <strong>Upload hierarchy CSV</strong>
       <div style="font-size:11px;color:#9ca3af;margin-top:3px">Store ID + Zone / Channel / Territory / Retailer etc. · CSV only</div>
     </div>
-    <input type="file" id="hierEnrichFile" accept=".csv" style="display:none" onchange="handleHierEnrichUpload(this)">
+    <input type="file" id="hierEnrichFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleHierEnrichUpload(this)">
     <div id="hierEnrichMapperWrap"></div>
   </div>
 
@@ -1362,13 +1362,26 @@ function handleHierEnrichUpload(input) {
   input.value = '';
 }
 function processHierEnrichFile(file) {
-  Papa.parse(file, {
-    header: true, skipEmptyLines: true,
-    complete: res => {
-      window._hierEnrichData = res.data;
-      showHierEnrichMapper(res.data, res.meta.fields || [], 'hierEnrichMapperWrap');
-    }
-  });
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: res => {
+        window._hierEnrichData = stripEmptyRows(res.data);
+        showHierEnrichMapper(window._hierEnrichData, res.meta.fields || [], 'hierEnrichMapperWrap');
+      }
+    });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = stripEmptyRows(XLSX.utils.sheet_to_json(ws, {defval:''}));
+      window._hierEnrichData = data;
+      showHierEnrichMapper(data, data.length ? Object.keys(data[0]) : [], 'hierEnrichMapperWrap');
+    };
+    reader.readAsArrayBuffer(file);
+  }
 }
 function showHierEnrichMapper(data, fields, wrapId) {
   const wrap = document.getElementById(wrapId); if (!wrap) return;
@@ -1513,56 +1526,100 @@ function processSmFile(file, storeType) {
   }
 }
 
+let _smHierRowIdx = 0;
+
 function showSmMapper(data, fields, uploadType, wrapId) {
   const cfg = SM_CONFIGS[uploadType];
-  const forcedKeys = [...Object.keys(cfg.forceFields), 'c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'];
-  const targets = SECTION_COLS.sm.filter(t => !forcedKeys.includes(t.key));
+  const forcedKeys = new Set([...Object.keys(cfg.forceFields), 'c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12']);
+  const targets = SECTION_COLS.sm.filter(t => !forcedKeys.has(t.key));
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   const dataKey = '_smMapData_' + uploadType;
+  const fieldsKey = '_smFields_' + uploadType;
   window[dataKey] = data;
-  const reqLabels = targets.filter(t => t.required).map(t => t.label);
-  const forceSummary = Object.entries(cfg.forceFields).map(([k,v])=>`${k.replace('storeType','Store Type').replace('testShop','Test Shop')} = <strong>${v}</strong>`).join(', ');
+  window[fieldsKey] = fields;
+
+  const forceSummary = Object.entries(cfg.forceFields).map(([k,v]) =>
+    `${k==='storeType'?'Store Type':k==='testShop'?'Test Shop':k} = <strong>${v}</strong>`).join(', ');
+  const reqTargets = targets.filter(t => t.required);
+
+  // For each MDM target, find the best-matching source column
+  function bestGuess(tgtKey) {
+    const tgt = targets.find(t => t.key === tgtKey);
+    if (!tgt) return '';
+    return fields.find(f => autoGuess(f, [tgt]) === tgtKey) || '';
+  }
+
+  // Forced-field info rows (greyed, auto-set)
+  const forcedRows = Object.entries(cfg.forceFields).map(([k,v]) =>
+    `<tr style="opacity:.45">
+      <td style="padding:5px 10px;font-size:12.5px">${k==='storeType'?'Store Type':k==='testShop'?'Test Shop':k} <span style="font-size:11px;font-weight:400">(auto-set: <strong>${v}</strong>)</span></td>
+      <td style="padding:5px 10px;font-size:11.5px;font-style:italic;color:#9ca3af">— auto-set —</td>
+    </tr>`).join('');
+
+  // Mappable field rows — MDM field on left, file-column dropdown on right
+  const fieldRows = targets.map(t => {
+    const guess = bestGuess(t.key);
+    const opts = `<option value="">— skip —</option>` +
+      fields.map(f => `<option value="${escHtml(f)}"${guess===f?' selected':''}>${escHtml(f)}</option>`).join('');
+    return `<tr>
+      <td style="padding:5px 10px;font-size:12.5px">${escHtml(t.label)}${t.required?` <span class="req-badge">Required</span>`:''}</td>
+      <td style="padding:4px 8px"><select data-tgt="${t.key}" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:12px">${opts}</select></td>
+    </tr>`;
+  }).join('');
+
+  const hierTbodyId = 'smHierTbody_' + uploadType;
+
   let html = `<div class="mapper-wrap">
     <div class="mapper-title">Column Mapper — ${data.length} rows · Auto-set: ${forceSummary}</div>
-    ${reqLabels.length ? `<div class="mapper-req-note"><strong>Required fields to map:</strong> ${reqLabels.join(', ')}</div>` : ''}
-    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Auto-guessed matches shown. Check each row then click Apply.</p>
-    <table class="mapper"><thead><tr><th>Your column name</th><th>→ Maps to MDM field</th></tr></thead><tbody>`;
-  fields.forEach(f => {
-    const guessedKey = autoGuess(f, targets);
-    html += `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
-      <option value="">— skip this column —</option>
-      ${targets.map(t => `<option value="${t.key}" ${guessedKey===t.key?'selected':''}>${t.required?'* ':''}${t.label}</option>`).join('')}
-    </select></td></tr>`;
-  });
-  html += `</tbody></table>
-  <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px">
-    <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:3px">📊 Hierarchy Fields <span style="font-size:11.5px;font-weight:400;color:#6b7280">— optional, for store grouping on the SAM tab</span></div>
-    <p style="font-size:11.5px;color:#6b7280;margin-bottom:4px">Check any columns to import as hierarchy grouping fields (Zone, Channel, Territory, etc.). These become additional Group By options on the Store-Assortment Mapping tab.</p>
-    <p style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:5px 8px;margin-bottom:8px">⚠ Don't check columns already mapped to standard fields above (Region/Area, Retailer, Store Type) — those are already available as Group By options on the SAM tab.</p>
-    <table style="font-size:12px"><tbody>
-    ${fields.map((f,fi)=>`<tr>
-      <td style="padding:3px 6px"><input type="checkbox" id="hier_cb_${fi}"></td>
-      <td style="padding:3px 10px 3px 4px;color:#374151"><code>${escHtml(f)}</code></td>
-      <td style="padding:3px 0"><input type="text" id="hier_name_${fi}" value="${escHtml(f)}" placeholder="Field label"
-        style="border:1px solid #d1d5db;border-radius:4px;padding:3px 8px;font-size:12px;width:160px"></td>
-    </tr>`).join('')}
-    </tbody></table>
-  </div>
-  <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-    <button class="btn btn-primary btn-sm" style="background:${cfg.color}" onclick="applySmMapping('${uploadType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import (${cfg.label})</button>
-    <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
-  </div></div>`;
+    ${reqTargets.length?`<div class="mapper-req-note"><strong>Required fields:</strong> ${reqTargets.map(t=>t.label).join(', ')} — map these before clicking Apply.</div>`:''}
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Select the column from your file that corresponds to each MDM field. Auto-guessed matches are pre-selected.</p>
+    <table class="mapper"><thead><tr><th>MDM Field</th><th>← Column from your file</th></tr></thead>
+    <tbody>${forcedRows}${fieldRows}</tbody></table>
+    <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px">
+      <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:3px">📊 Hierarchy Fields <span style="font-size:11.5px;font-weight:400;color:#6b7280">— optional, become Group By options on the SAM tab</span></div>
+      <p style="font-size:11.5px;color:#6b7280;margin-bottom:4px">Add a row for each extra field you want to group stores by (e.g. Zone, Channel, Territory).</p>
+      <p style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:5px 8px;margin-bottom:8px">⚠ Region/Area, Retailer, and Store Type are already built-in Group By options — don't add them here again.</p>
+      <table class="mapper" style="margin-bottom:6px">
+        <thead><tr><th>Field Label <span style="font-weight:400;font-size:11px">(shown in tool)</span></th><th>← Column from your file</th><th style="width:32px"></th></tr></thead>
+        <tbody id="${hierTbodyId}"></tbody>
+      </table>
+      <button class="btn btn-secondary btn-sm" onclick="addSmHierRow('${hierTbodyId}','${fieldsKey}')">+ Add Hierarchy Field</button>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary btn-sm" style="background:${cfg.color}" onclick="applySmMapping('${uploadType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import (${cfg.label})</button>
+      <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
+    </div></div>`;
   wrap.innerHTML = html;
+}
+
+function addSmHierRow(tbodyId, fieldsKey) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  const fields = window[fieldsKey] || [];
+  const idx = _smHierRowIdx++;
+  const colOpts = `<option value="">— not imported —</option>` +
+    fields.map(f => `<option value="${escHtml(f)}">${escHtml(f)}</option>`).join('');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="padding:4px 8px"><input type="text" data-hier-label="${idx}" placeholder="e.g. Zone"
+      style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px"></td>
+    <td style="padding:4px 8px"><select data-hier-col="${idx}"
+      style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:12px">${colOpts}</select></td>
+    <td style="padding:4px;text-align:center"><button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 6px" onclick="this.closest('tr').remove()">×</button></td>`;
+  tbody.appendChild(tr);
 }
 
 function applySmMapping(uploadType, dataKey, wrap) {
   const cfg = SM_CONFIGS[uploadType];
   const rawData = window[dataKey] || [];
   const data = rawData.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
-  const selects = wrap.querySelectorAll('select[data-src]');
+
+  // Build mapping {sourceCol: targetKey} from inverted dropdowns
+  const selects = wrap.querySelectorAll('select[data-tgt]');
   const mapping = {};
-  selects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
+  selects.forEach(sel => { if (sel.value) mapping[sel.value] = sel.dataset.tgt; });
+
   const rows = data.map(srcRow => {
     const row = makeRow('sm');
     Object.entries(mapping).forEach(([src, tgt]) => {
@@ -1571,8 +1628,8 @@ function applySmMapping(uploadType, dataKey, wrap) {
     Object.entries(cfg.forceFields).forEach(([k,v]) => { row[k] = v; });
     return row;
   });
-  // Process hierarchy field selections
-  const fields = Object.keys(data[0] || {});
+
+  // Process hierarchy rows
   let hierSlot = 0;
   const usedSlots = () => new Set([
     ...S.sm.hierarchyFields.map(h=>h.idx),
@@ -1580,21 +1637,22 @@ function applySmMapping(uploadType, dataKey, wrap) {
   ]);
   const advanceSlot = () => { const u=usedSlots(); while(hierSlot<12&&u.has(hierSlot)) hierSlot++; };
   advanceSlot();
-  fields.forEach((f, fi) => {
+  wrap.querySelectorAll('input[data-hier-label]').forEach(inp => {
     if (hierSlot >= 12) return;
-    const cb = wrap.querySelector('#hier_cb_' + fi);
-    if (!cb || !cb.checked) return;
-    // Skip columns already mapped to a built-in SM field — they don't need a custom hierarchy slot
-    if (mapping[f]) return;
-    const nameEl = wrap.querySelector('#hier_name_' + fi);
-    const label = (nameEl?.value || f).trim() || f;
+    const idx = inp.dataset.hierLabel;
+    const sel = wrap.querySelector(`select[data-hier-col="${idx}"]`);
+    if (!sel || !sel.value) return;
+    const srcCol = sel.value;
+    if (mapping[srcCol]) return; // already mapped to a standard field
+    const label = inp.value.trim() || srcCol;
     const cKey = 'c' + (hierSlot + 1);
     S.sm.customHeaders[hierSlot] = label;
-    rows.forEach((row, ri) => { if (data[ri]?.[f] !== undefined) row[cKey] = String(data[ri][f]).trim(); });
+    rows.forEach((row, ri) => { if (data[ri]?.[srcCol] !== undefined) row[cKey] = String(data[ri][srcCol]).trim(); });
     if (!S.sm.hierarchyFields.find(h => h.idx === hierSlot)) S.sm.hierarchyFields.push({idx: hierSlot, label});
     hierSlot++;
     advanceSlot();
   });
+
   S.sm.rows.push(...rows);
   resetConfirm('sm');
   renderSmGrid();
