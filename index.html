@@ -1278,11 +1278,9 @@ const SM_CONFIGS = {
   Test:    { label:'Test Stores',  color:'#d97706', forceFields:{testShop:'1'}                      }
 };
 
-// ── Sort state (per grid) ──
-const _sort = {
-  sm:{col:'',dir:1}, um:{col:'',dir:1}, sch:{col:'',dir:1},
-  univ:{col:'',dir:1}, sku:{col:'',dir:1}, sam:{col:'',dir:1}, sv:{col:'',dir:1}
-};
+// ── Sort state (per grid) — array of {col, dir} in priority order ──
+const _sort = { sm:[], um:[], sch:[], univ:[], sku:[], sam:[], sv:[] };
+function _resetSort() { Object.keys(_sort).forEach(k=>_sort[k]=[]); }
 
 // ── Hierarchy Enrichment ──
 let _hierMissingStores = new Set();
@@ -3802,6 +3800,7 @@ function loadSession(input) {
       if (!S.sam.customGroupBy) S.sam.customGroupBy={fieldName:'',mapping:{}};
       if (!S.sm.hierarchyFields) S.sm.hierarchyFields=[];
       _hierMissingStores = new Set();
+      _resetSort();
       renderGroupByButtons();
       // Migrate old combo format (inline sections → sectionIds)
       S.sam.shelfCombos.forEach(c=>{
@@ -3912,27 +3911,53 @@ function renderSectionGrid(section) {
 }
 
 // ── Sort utilities ──
-function setSort(grid, col) {
-  if (_sort[grid].col === col) _sort[grid].dir *= -1;
-  else { _sort[grid].col = col; _sort[grid].dir = 1; }
+function setSort(grid, col, isShift) {
+  const arr = _sort[grid];
+  const idx = arr.findIndex(s => s.col === col);
+  if (isShift) {
+    // Shift+click: add/toggle in stack without clearing others
+    if (idx >= 0) {
+      if (arr[idx].dir === 1) arr[idx].dir = -1;
+      else arr.splice(idx, 1);
+    } else {
+      arr.push({col, dir: 1});
+    }
+  } else {
+    // Regular click: replace stack or cycle asc→desc→off on same col
+    if (idx === 0 && arr.length === 1) {
+      if (arr[0].dir === 1) _sort[grid] = [{col, dir: -1}];
+      else _sort[grid] = [];
+    } else {
+      _sort[grid] = [{col, dir: 1}];
+    }
+  }
   ({sm:renderSmGrid,um:renderUmGrid,sch:renderSchGrid,univ:renderUniverseGrid,
     sku:renderSkuGrid,sam:renderSamGrid,sv:renderSvGrid}[grid] || (()=>{}))();
 }
 function sortedRows(rows, grid) {
-  const {col, dir} = _sort[grid]||{col:'',dir:1};
-  if (!col) return rows;
-  return [...rows].sort((a,b)=>{
-    const av=(a[col]||'').toString().toLowerCase(), bv=(b[col]||'').toString().toLowerCase();
-    const an=parseFloat(a[col]), bn=parseFloat(b[col]);
-    if (!isNaN(an)&&!isNaN(bn)) return (an-bn)*dir;
-    return (av<bv?-1:av>bv?1:0)*dir;
+  const arr = _sort[grid];
+  if (!arr || !arr.length) return rows;
+  return [...rows].sort((a,b) => {
+    for (const {col,dir} of arr) {
+      const an=parseFloat(a[col]), bn=parseFloat(b[col]);
+      let cmp = (!isNaN(an)&&!isNaN(bn)) ? (an-bn) :
+        (a[col]||'').toString().toLowerCase() < (b[col]||'').toString().toLowerCase() ? -1 :
+        (a[col]||'').toString().toLowerCase() > (b[col]||'').toString().toLowerCase() ? 1 : 0;
+      if (cmp !== 0) return cmp * dir;
+    }
+    return 0;
   });
 }
 function sth(grid, col, label) {
-  const {col:sc,dir:sd}=_sort[grid]||{col:'',dir:1};
-  const active=sc===col, cls=active?(sd===1?'asc':'desc'):'';
-  const icon=active?(sd===1?'▲':'▼'):'<span style="opacity:.28;font-size:10px">⇅</span>';
-  return `<th class="sth${active?' '+cls:''}" onclick="setSort('${grid}','${col}')">${escHtml(label)} ${icon}</th>`;
+  const arr = _sort[grid]||[];
+  const idx = arr.findIndex(s=>s.col===col);
+  const active = idx >= 0;
+  const dir = active ? arr[idx].dir : 1;
+  const multi = arr.length > 1;
+  const icon = active ? (dir===1?'▲':'▼') : '<span style="opacity:.28;font-size:10px">⇅</span>';
+  const badge = (active && multi) ? `<sup style="font-size:9px;font-weight:800;margin-left:1px">${idx+1}</sup>` : '';
+  const cls = active ? (dir===1?'asc':'desc') : '';
+  return `<th class="sth${active?' '+cls:''}" onclick="setSort('${grid}','${col}',event.shiftKey)" title="Click to sort · Shift+click to add secondary sort">${escHtml(label)} ${icon}${badge}</th>`;
 }
 
 // ============================================================
