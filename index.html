@@ -850,16 +850,6 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
     </div>
   </div>
 
-  <!-- CARD 1b: Category Headings -->
-  <div class="card">
-    <div class="card-title">
-      <span class="card-title-left">🏷 Category Headings <span style="font-size:11px;font-weight:400;color:#9ca3af">(optional — display label shown above each category in the app)</span></span>
-      <button class="btn btn-secondary btn-sm" onclick="renderCategoryHeadings()">↻ Refresh</button>
-    </div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Free-text label describing the placement type for each category (e.g. "Primary Placement", "Secondary Shelf"). This is a mandatory column in the output file — enter a value for each category, or use the same heading across all if placement type doesn't vary.</p>
-    <div id="samCatHeadingsContainer"><p style="font-size:12.5px;color:#9ca3af">No categories found yet — add SKUs in the SKU Assortment tab first, then click ↻ Refresh.</p></div>
-  </div>
-
   <!-- CARD 2: Store Assignment -->
   <div class="card">
     <div class="card-title">
@@ -1059,7 +1049,7 @@ function switchTab(id) {
   if (id === 't2') { renderSmCustomColInputs(); renderSmGrid(); }
   if (id === 't3') { renderUmGrid(); renderSchGrid(); }
   if (id === 't4') { renderReservedClassPicker(); renderUniverseGrid(); if(S.sku.universeConfirmed) renderAssortmentPhase(); renderSkuGrid(); }
-  if (id === 't5') { renderGroupByButtons(); renderShelfCombos(); renderCategoryHeadings(); renderStoreSetup(); renderSamGrid(); }
+  if (id === 't5') { renderGroupByButtons(); renderShelfCombos(); renderStoreSetup(); renderSamGrid(); }
   if (id === 't6') { renderSvGrid(); }
   if (id === 't7') { renderDlGrid(); }
 }
@@ -3047,34 +3037,6 @@ function renderSkuSummary() {
 // ============================================================
 
 // ── Shelf Sections (master list) ──
-function renderCategoryHeadings() {
-  const c=document.getElementById('samCatHeadingsContainer'); if(!c) return;
-  if (!S.sam.categoryHeadings) S.sam.categoryHeadings={};
-  const cats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))].sort();
-  if (!cats.length) {
-    c.innerHTML='<p style="font-size:12.5px;color:#9ca3af">No categories found yet — add SKUs in the SKU Assortment tab first, then click ↻ Refresh.</p>';
-    return;
-  }
-  let html=`<table style="border-collapse:collapse;font-size:12.5px;width:100%;max-width:640px">
-    <thead><tr>
-      <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:left">Category Name</th>
-      <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:left">Category Heading <span style="font-weight:400;color:#9ca3af">(free text — e.g. "Primary Placement", "Secondary Shelf")</span></th>
-    </tr></thead><tbody>`;
-  cats.forEach(cat=>{
-    const val=S.sam.categoryHeadings[cat]||'';
-    html+=`<tr>
-      <td style="padding:5px 10px;border:1px solid #e5e7eb;color:#374151">${escHtml(cat)}</td>
-      <td style="padding:4px 8px;border:1px solid #e5e7eb">
-        <input type="text" value="${escHtml(val)}" placeholder="${escHtml(cat)}"
-          style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px"
-          onchange="if(!S.sam.categoryHeadings)S.sam.categoryHeadings={};S.sam.categoryHeadings[${JSON.stringify(cat)}]=this.value.trim()">
-      </td>
-    </tr>`;
-  });
-  html+='</tbody></table>';
-  c.innerHTML=html;
-}
-
 function addShelfSection() {
   if (!S.sam.shelfSections) S.sam.shelfSections=[];
   S.sam.shelfSections.push({id:'ss_'+uid(), name:'', imageLink:''});
@@ -3581,7 +3543,7 @@ function generateSamRows() {
       const row=makeRow('sam');
       row.shopId=setup.storeId;
       row.categoryName=cat;
-      row.categoryHeading=(S.sam.categoryHeadings&&S.sam.categoryHeadings[cat])||'';
+      row.categoryHeading=combo?.name||'';
       row.assortmentName=outputAssortment;
       row.shelfSection=shelfSection;
       row.shelfImages=shelfImages;
