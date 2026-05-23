@@ -64,6 +64,8 @@ table.grid td.err{border-color:#ef4444;background:#fef2f2}
 table.grid td.warn{border-color:#f59e0b;background:#fffbeb}
 table.grid td.del-col{width:30px;text-align:center;background:#f9fafb}
 table.grid th.sel-col,table.grid td.sel-col{width:32px;text-align:center;background:#f9fafb;padding:3px}
+table.grid th.ack-col,table.grid td.ack-col{width:26px;text-align:center;padding:2px;background:#f9fafb;cursor:pointer;user-select:none}
+table.grid td.ack-col:hover{background:#fffbeb}
 table.grid td.sn-cell{max-width:160px;overflow:hidden;position:relative}
 table.grid td.sn-cell input{text-overflow:ellipsis}
 table.grid td.sn-cell:focus-within{overflow:visible}
@@ -162,6 +164,8 @@ body.dark table.grid td{border-color:#334155}
 body.dark table.grid td.rn{background:#273549;color:#64748b}
 body.dark table.grid td.del-col{background:#273549}
 body.dark table.grid th.sel-col,body.dark table.grid td.sel-col{background:#273549}
+body.dark table.grid th.ack-col,body.dark table.grid td.ack-col{background:#273549}
+body.dark table.grid td.ack-col:hover{background:#1f1500}
 body.dark table.grid td input,body.dark table.grid td select{color:#e2e8f0}
 body.dark table.grid td input:focus,body.dark table.grid td select:focus{background:#1e3a5f}
 body.dark table.grid td.err{border-color:#ef4444;background:#2d0f0f}
@@ -1708,7 +1712,7 @@ function renderSmGrid() {
   const displayRows = sortedRows(rows, 'sm');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#smGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sm','storeId','Store ID *')}${sth('sm','storeName','Store Name *')}${sth('sm','storeType','Store Type *')}<th>Test Shop *</th>
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('sm','storeId','Store ID *')}${sth('sm','storeName','Store Name *')}${sth('sm','storeType','Store Type *')}<th>Test Shop *</th>
     ${sth('sm','retailer','Retailer')}${sth('sm','regionArea','Region/Area')}<th>Latitude</th><th>Longitude</th>
     ${activeCustom.map(c=>sth('sm','c'+(c.i+1),c.h)).join('')}
     </tr></thead><tbody>`;
@@ -1720,6 +1724,7 @@ function renderSmGrid() {
     html += `<tr style="${hierMissing?'background:#fffbeb;border-left:3px solid #f59e0b':''}">
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'sm')}
       ${smCell(row,'storeId','text',rowErrs,'Store ID')}
       ${smCell(row,'storeName','text',rowErrs,'Store Name',rowWarns)}
       <td class="${rowErrs.storeType?'err':''}" style="${!rowErrs.storeType&&row.storeType==='Digital'?'background:#eff6ff':!rowErrs.storeType&&row.storeType==='Manual'?'background:#faf5ff':''}"><select onchange="updateSmRow('${row.id}','storeType',this.value)" style="font-weight:500">
@@ -1739,7 +1744,7 @@ function renderSmGrid() {
       ${activeCustom.map(c=>`<td><input type="text" value="${escHtml(row['c'+(c.i+1)]||'')}" onchange="updateSmRow('${row.id}','c${c.i+1}',this.value)"></td>`).join('')}
     </tr>
     ${Object.values(rowErrs).length ? `<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(rowErrs).join(' · ')}</span></td></tr>` : ''}
-    ${Object.keys(rowWarns).length ? `<tr><td colspan="100" style="padding:3px 8px;background:#fffbeb;border:none"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#d97706;flex:1">${Object.values(rowWarns).join(' · ')}</span>${Object.keys(rowWarns).map(k=>`<button class="btn btn-sm" style="font-size:10.5px;padding:2px 8px;background:#fefce8;color:#92400e;border:1px solid #fde68a;flex-shrink:0;white-space:nowrap" onclick="dismissRowWarning('sm','${row.id}','${k}')">✓ Mark as intentional</button>`).join('')}</div></td></tr>` : ''}`;
+    ${Object.keys(rowWarns).length ? `<tr><td colspan="100" style="padding:3px 8px;background:#fffbeb;border:none"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:#d97706;flex:1">${Object.values(rowWarns).join(' · ')}</span><button class="btn btn-sm" style="font-size:10.5px;padding:2px 8px;background:#fefce8;color:#92400e;border:1px solid #fde68a;flex-shrink:0;white-space:nowrap" onclick="toggleRowAck('${row.id}','sm')">✓ Mark as intentional</button></div></td></tr>` : ''}`;
   });
   html += '</tbody></table>';
   container.innerHTML = html;
@@ -1756,17 +1761,28 @@ function updateSmRow(id, key, val) {
   const row = S.sm.rows.find(r=>r.id===id);
   if (row) {
     row[key] = val;
-    if (S.acknowledged && S.acknowledged.rows[id]) delete S.acknowledged.rows[id][key];
     if (S.confirmed.sm) resetConfirm('sm');
     renderSmGrid();
   }
 }
 
-function dismissRowWarning(section, rowId, fieldKey) {
+function ackCell(rowId, section) {
+  const isAcked = !!(S.acknowledged && S.acknowledged.rows[rowId] && S.acknowledged.rows[rowId]._ack);
+  return `<td class="ack-col" title="${isAcked?'Marked as intentional — click to undo':'Mark row as intentional'}" onclick="toggleRowAck('${rowId}','${section}')"><span style="font-size:13px;line-height:1;color:${isAcked?'#d97706':'#cbd5e1'}">${isAcked?'✓':'○'}</span></td>`;
+}
+
+function toggleRowAck(rowId, section) {
   if (!S.acknowledged) S.acknowledged = { rows: {} };
   if (!S.acknowledged.rows[rowId]) S.acknowledged.rows[rowId] = {};
-  S.acknowledged.rows[rowId][fieldKey] = true;
-  if (section === 'sm') renderSmGrid();
+  if (S.acknowledged.rows[rowId]._ack) delete S.acknowledged.rows[rowId]._ack;
+  else S.acknowledged.rows[rowId]._ack = true;
+  if (section==='sm') renderSmGrid();
+  else if (section==='um') renderUmGrid();
+  else if (section==='sch') renderSchGrid();
+  else if (section==='sku') renderSkuGrid();
+  else if (section==='univ') renderUniverseGrid();
+  else if (section==='sam') renderSamGrid();
+  else if (section==='sv') renderSvGrid();
   updateDots();
 }
 
@@ -1810,8 +1826,8 @@ function validateSmRows() {
     if (!row.storeName.trim()) e.storeName = 'Store Name required';
     else {
       const normName = row.storeName.trim().toLowerCase().replace(/\s+/g,' ');
-      const rowAck = (S.acknowledged && S.acknowledged.rows[row.id]) || {};
-      if (nameCounts[normName] > 1 && !rowAck.storeName) w.storeName = 'Duplicate store name — verify this is intentional';
+      const isAcked = !!(S.acknowledged && S.acknowledged.rows[row.id] && S.acknowledged.rows[row.id]._ack);
+      if (nameCounts[normName] > 1 && !isAcked) w.storeName = 'Duplicate store name';
     }
     if (!row.storeType) e.storeType = 'Store Type required';
     if (row.testShop === '') e.testShop = 'Test Shop required';
@@ -1885,17 +1901,18 @@ function renderUmGrid() {
   const displayRows = sortedRows(S.um.rows, 'um');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#umGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('um','userId','User ID *')}${sth('um','userName','User Name *')}<th>Password *</th>${sth('um','monthlyDays','Monthly Working Days')}</tr></thead><tbody>`;
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('um','userId','User ID *')}${sth('um','userName','User Name *')}<th>Password *</th>${sth('um','monthlyDays','Monthly Working Days')}</tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
     const e = errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'um')}
       <td class="${e.userId?'err':''}"><input type="text" value="${escHtml(row.userId)}" onchange="updateUmRow('${row.id}','userId',this.value)"></td>
       <td class="${e.userName?'err':''}"><input type="text" value="${escHtml(row.userName)}" onchange="updateUmRow('${row.id}','userName',this.value)"></td>
       <td class="${e.password?'err':''}"><input type="password" value="${escHtml(row.password)}" onchange="updateUmRow('${row.id}','password',this.value)"></td>
       <td><input type="text" value="${escHtml(row.monthlyDays)}" onchange="updateUmRow('${row.id}','monthlyDays',this.value)"></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?6:5}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
@@ -2033,12 +2050,13 @@ function renderSchGrid() {
   const displayRows = sortedRows(S.sch.rows, 'sch');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#schGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sch','storeId','Store ID *')}<th>Store Name</th>${sth('sch','userId','User ID *')}<th>User Name</th>${sth('sch','startDate','Start Date')}${sth('sch','frequency','Frequency *')}${sth('sch','endDate','End Date')}<th>Custom Interval</th></tr></thead><tbody>`;
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('sch','storeId','Store ID *')}<th>Store Name</th>${sth('sch','userId','User ID *')}<th>User Name</th>${sth('sch','startDate','Start Date')}${sth('sch','frequency','Frequency *')}${sth('sch','endDate','End Date')}<th>Custom Interval</th></tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'sch')}
       <td class="${e.storeId?'err':''}"><select onchange="updateSchRow('${row.id}','storeId',this.value)" style="min-width:100px">
         <option value="">—</option>
         ${storeIds.map(id=>`<option value="${escHtml(id)}" ${row.storeId===id?'selected':''}>${escHtml(id)}</option>`).join('')}
@@ -2058,7 +2076,7 @@ function renderSchGrid() {
       </select></td>
       <td class="${e.endDate?'err':''}"><input type="text" placeholder="YYYY-MM-DD" value="${escHtml(row.endDate)}" onchange="updateSchRow('${row.id}','endDate',this.value)"></td>
       <td class="${e.customInterval?'err':''}"><input type="text" placeholder="${row.frequency==='custom'?'Required':'—'}" value="${escHtml(row.customInterval)}" onchange="updateSchRow('${row.id}','customInterval',this.value)" ${row.frequency!=='custom'?'style="background:#f9fafb"':''}></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?10:9}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
@@ -2322,7 +2340,7 @@ function renderUniverseGrid() {
   const displayRows = sortedRows(rows, 'univ');
   let html=`<table class="grid"><thead><tr>
     ${delMode?`<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll('#univGridContainer input[type=checkbox][data-id]').forEach(cb=>cb.checked=this.checked)"></th>`:''}
-    <th>#</th>${sth('univ','skuType','Type')}${sth('univ','skuName','SKU Name *')}${sth('univ','categoryName','Category Name *')}<th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th>
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('univ','skuType','Type')}${sth('univ','skuName','SKU Name *')}${sth('univ','categoryName','Category Name *')}<th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th>
   </tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
@@ -2330,6 +2348,7 @@ function renderUniverseGrid() {
     html+=`<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'univ')}
       <td style="text-align:center">${tb}</td>
       <td class="${e.skuName?'err':''}"><input type="text" value="${escHtml(row.skuName)}" onchange="updateUniverseRow('${row.id}','skuName',this.value)"></td>
       <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateUniverseRow('${row.id}','categoryName',this.value)"></td>
@@ -2926,7 +2945,7 @@ function renderSkuGrid() {
   const assortColKey = isCat?'assortmentName':'storeMetaCol';
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#skuGridContainer input[type=checkbox][data-id]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sku','skuType','Type *')}${sth('sku','skuName','SKU Name *')}${sth('sku','categoryName','Category Name *')}
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('sku','skuType','Type *')}${sth('sku','skuName','SKU Name *')}${sth('sku','categoryName','Category Name *')}
     ${S.sku.useAssortment?sth('sku',assortColKey,isCat?'Assortment Name':'Store Metadata Col'):''}
     <th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th></tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
@@ -2948,6 +2967,7 @@ function renderSkuGrid() {
     html += `<tr>
       ${delMode?(isReserved?'<td class="sel-col" style="background:#f9fafb"></td>':`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`):''}
       <td class="rn">${idx+1}</td>
+      ${isReserved?'<td class="ack-col" style="cursor:default"></td>':ackCell(row.id,'sku')}
       <td style="text-align:center;white-space:nowrap">${typeBadge}</td>
       <td class="${e.skuName?'err':''}">${isReserved?`<input type="text" value="${escHtml(row.skuName)}" readonly style="background:#f9fafb;color:#6b7280;font-weight:600">`:`<input type="text" value="${escHtml(row.skuName)}" onchange="updateSkuRow('${row.id}','skuName',this.value)">`}</td>
       ${catCell}
@@ -3681,13 +3701,14 @@ function renderSamGrid() {
   const displayRows = sortedRows(S.sam.rows, 'sam');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#samGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sam','shopId','Shop ID *')}<th>Category Heading</th>${sth('sam','categoryName','Category Name *')}${sth('sam','shelfSection','Shelf Section *')}<th>Image Links</th>${sth('sam','assortmentName','Assortment Name')}</tr></thead><tbody>`;
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('sam','shopId','Shop ID *')}<th>Category Heading</th>${sth('sam','categoryName','Category Name *')}${sth('sam','shelfSection','Shelf Section *')}<th>Image Links</th>${sth('sam','assortmentName','Assortment Name')}</tr></thead><tbody>`;
   const errs = validateSamRows();
   displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'sam')}
       <td class="${e.shopId?'err':''}"><input type="text" value="${escHtml(row.shopId)}" onchange="updateSamRow('${row.id}','shopId',this.value)"></td>
       <td><input type="text" value="${escHtml(row.categoryHeading)}" onchange="updateSamRow('${row.id}','categoryHeading',this.value)"></td>
       <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSamRow('${row.id}','categoryName',this.value)"></td>
@@ -3737,13 +3758,14 @@ function renderSvGrid() {
   const displayRows = sortedRows(S.sv.rows, 'sv');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#svGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sv','shopId','Shop ID *')}<th>Shop Name</th>${sth('sv','categoryName','Category Name *')}<th>Sections</th><th>Survey Questions</th>${sth('sv','questionType','Question Type *')}<th>Answers</th>${sth('sv','questionFlag','Question Flag *')}</tr></thead><tbody>`;
+    <th>#</th><th class="ack-col" title="Mark row as intentional">✓</th>${sth('sv','shopId','Shop ID *')}<th>Shop Name</th>${sth('sv','categoryName','Category Name *')}<th>Sections</th><th>Survey Questions</th>${sth('sv','questionType','Question Type *')}<th>Answers</th>${sth('sv','questionFlag','Question Flag *')}</tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     const answersLocked = ['sos','price','date','phototext'].includes(row.questionType);
     html += `<tr class="${Object.keys(e).length?'has-err':''}">
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
+      ${ackCell(row.id,'sv')}
       <td class="${e.shopId?'err':''}"><input type="text" value="${escHtml(row.shopId)}" onchange="updateSvRow('${row.id}','shopId',this.value)"></td>
       <td><input type="text" value="${escHtml(row.shopName)}" onchange="updateSvRow('${row.id}','shopName',this.value)"></td>
       <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSvRow('${row.id}','categoryName',this.value)"></td>
@@ -3759,7 +3781,7 @@ function renderSvGrid() {
         <option value="optional" ${row.questionFlag==='optional'?'selected':''}>optional</option>
         <option value="mandatory" ${row.questionFlag==='mandatory'?'selected':''}>mandatory</option>
       </select></td>
-    </tr>${Object.values(e).length?`<tr><td colspan="${delMode?10:9}" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
+    </tr>${Object.values(e).length?`<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(e).join(' · ')}</span></td></tr>`:''}`;
   });
   html += '</tbody></table>';
   c.innerHTML = html;
