@@ -53,6 +53,9 @@ body::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;backgroun
 .grid-wrap{overflow-x:auto}
 table.grid{width:100%;border-collapse:collapse;font-size:12px}
 table.grid th{background:#f9fafb;border:1px solid #e5e7eb;padding:6px 8px;text-align:left;font-weight:600;color:#374151;white-space:nowrap}
+table.grid th.sth{cursor:pointer;user-select:none}
+table.grid th.sth:hover{background:#e8f0fe;color:#1d4ed8}
+table.grid th.sth.asc,table.grid th.sth.desc{background:#eff6ff;color:#2563eb}
 table.grid td{border:1px solid #e5e7eb;padding:1px}
 table.grid td.rn{background:#f9fafb;color:#9ca3af;text-align:center;width:28px;font-size:11px;padding:4px}
 table.grid td input,table.grid td select{width:100%;border:none;padding:5px 7px;font-size:12px;background:transparent;outline:none;min-width:80px}
@@ -1275,6 +1278,12 @@ const SM_CONFIGS = {
   Test:    { label:'Test Stores',  color:'#d97706', forceFields:{testShop:'1'}                      }
 };
 
+// ── Sort state (per grid) ──
+const _sort = {
+  sm:{col:'',dir:1}, um:{col:'',dir:1}, sch:{col:'',dir:1},
+  univ:{col:'',dir:1}, sku:{col:'',dir:1}, sam:{col:'',dir:1}, sv:{col:'',dir:1}
+};
+
 // ── Hierarchy Enrichment ──
 let _hierMissingStores = new Set();
 
@@ -1559,13 +1568,14 @@ function renderSmGrid() {
   const tBadge=document.getElementById('smTestCount');   if(tBadge) tBadge.textContent=tCount+' store'+(tCount!==1?'s':'');
   if (!rows.length) { container.innerHTML = '<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; return; }
   const delMode=S.deleteMode.sm;
+  const displayRows = sortedRows(rows, 'sm');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#smGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>Store ID *</th><th>Store Name *</th><th>Store Type *</th><th>Test Shop *</th>
-    <th>Retailer</th><th>Region/Area</th><th>Latitude</th><th>Longitude</th>
-    ${activeCustom.map(c=>`<th>${escHtml(c.h)}</th>`).join('')}
+    <th>#</th>${sth('sm','storeId','Store ID *')}${sth('sm','storeName','Store Name *')}${sth('sm','storeType','Store Type *')}<th>Test Shop *</th>
+    ${sth('sm','retailer','Retailer')}${sth('sm','regionArea','Region/Area')}<th>Latitude</th><th>Longitude</th>
+    ${activeCustom.map(c=>sth('sm','c'+(c.i+1),c.h)).join('')}
     </tr></thead><tbody>`;
-  rows.forEach((row,idx) => {
+  displayRows.forEach((row,idx) => {
     const rowErrs = errors[row.id] || {};
     const hierMissing = _hierMissingStores.has(row.storeId.trim());
     if (hierMissing) html += `<tr><td colspan="100" style="padding:1px 10px;background:#fef3c7;border:1px solid #fcd34d;border-bottom:none;font-size:10.5px;color:#92400e;font-weight:500">⚠ Hierarchy field(s) not set for this store — upload an updated hierarchy CSV above</td></tr>`;
@@ -1684,10 +1694,11 @@ function renderUmGrid() {
   const errs = validateUmRows();
   if (!S.um.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; checkAndShowAutoGenPasswords(); return; }
   const delMode=S.deleteMode.um;
+  const displayRows = sortedRows(S.um.rows, 'um');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#umGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>User ID *</th><th>User Name *</th><th>Password *</th><th>Monthly Working Days</th></tr></thead><tbody>`;
-  S.um.rows.forEach((row,idx) => {
+    <th>#</th>${sth('um','userId','User ID *')}${sth('um','userName','User Name *')}<th>Password *</th>${sth('um','monthlyDays','Monthly Working Days')}</tr></thead><tbody>`;
+  displayRows.forEach((row,idx) => {
     const e = errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
@@ -1831,10 +1842,11 @@ function renderSchGrid() {
   const userIds = S.um.rows.map(r=>r.userId).filter(Boolean);
   if (!S.sch.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; renderSchCoverage(); return; }
   const delMode=S.deleteMode.sch;
+  const displayRows = sortedRows(S.sch.rows, 'sch');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#schGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>Store ID *</th><th>Store Name</th><th>User ID *</th><th>User Name</th><th>Start Date</th><th>Frequency *</th><th>End Date</th><th>Custom Interval</th></tr></thead><tbody>`;
-  S.sch.rows.forEach((row,idx) => {
+    <th>#</th>${sth('sch','storeId','Store ID *')}<th>Store Name</th>${sth('sch','userId','User ID *')}<th>User Name</th>${sth('sch','startDate','Start Date')}${sth('sch','frequency','Frequency *')}${sth('sch','endDate','End Date')}<th>Custom Interval</th></tr></thead><tbody>`;
+  displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
@@ -2119,11 +2131,12 @@ function renderUniverseGrid() {
   if (!rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Upload a file or add rows manually.</p>'; return; }
   const delMode = S.deleteMode.univ;
   const errs = validateUniverseRows();
+  const displayRows = sortedRows(rows, 'univ');
   let html=`<table class="grid"><thead><tr>
     ${delMode?`<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll('#univGridContainer input[type=checkbox][data-id]').forEach(cb=>cb.checked=this.checked)"></th>`:''}
-    <th>#</th><th>Type</th><th>SKU Name *</th><th>Category Name *</th><th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th>
+    <th>#</th>${sth('univ','skuType','Type')}${sth('univ','skuName','SKU Name *')}${sth('univ','categoryName','Category Name *')}<th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th>
   </tr></thead><tbody>`;
-  rows.forEach((row,idx) => {
+  displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     const tb=row.skuType==='self'?`<span class="tag tag-green" style="font-size:10.5px">Self</span>`:`<span class="tag tag-red" style="font-size:10.5px">Competitor</span>`;
     html+=`<tr>
@@ -2701,12 +2714,14 @@ function renderSkuGrid() {
   const compCnt=S.sku.rows.filter(r=>r.skuType==='competitor').length;
   const sb=document.getElementById('skuSelfCount'); if(sb) sb.textContent=selfCnt+' SKU'+(selfCnt!==1?'s':'');
   const cb=document.getElementById('skuCompCount'); if(cb) cb.textContent=compCnt+' SKU'+(compCnt!==1?'s':'');
+  const displayRows = sortedRows(S.sku.rows, 'sku');
+  const assortColKey = isCat?'assortmentName':'storeMetaCol';
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#skuGridContainer input[type=checkbox][data-id]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>Type *</th><th>SKU Name *</th><th>Category Name *</th>
-    ${S.sku.useAssortment?`<th>${isCat?'Assortment Name':'Store Metadata Col'}</th>`:''}
+    <th>#</th>${sth('sku','skuType','Type *')}${sth('sku','skuName','SKU Name *')}${sth('sku','categoryName','Category Name *')}
+    ${S.sku.useAssortment?sth('sku',assortColKey,isCat?'Assortment Name':'Store Metadata Col'):''}
     <th>Core</th><th>NPD</th><th>Reg OSA *</th><th>SOS *</th></tr></thead><tbody>`;
-  S.sku.rows.forEach((row,idx) => {
+  displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     const typeBadge = row.skuType==='self'?`<span class="tag tag-green" style="font-size:10.5px">Self</span>`:
                       row.skuType==='competitor'?`<span class="tag tag-red" style="font-size:10.5px">Competitor</span>`:
@@ -3347,11 +3362,12 @@ function renderSamGrid() {
   document.getElementById('samRowCount').textContent = S.sam.rows.length + ' rows';
   if (!S.sam.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Use "Generate SAM Rows" above or add rows manually.</p>'; return; }
   const delMode=S.deleteMode.sam;
+  const displayRows = sortedRows(S.sam.rows, 'sam');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#samGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>Shop ID *</th><th>Category Heading</th><th>Category Name *</th><th>Shelf Section *</th><th>Image Links</th><th>Assortment Name *</th></tr></thead><tbody>`;
+    <th>#</th>${sth('sam','shopId','Shop ID *')}<th>Category Heading</th>${sth('sam','categoryName','Category Name *')}${sth('sam','shelfSection','Shelf Section *')}<th>Image Links</th>${sth('sam','assortmentName','Assortment Name *')}</tr></thead><tbody>`;
   const errs = validateSamRows();
-  S.sam.rows.forEach((row,idx) => {
+  displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     html += `<tr>
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
@@ -3403,10 +3419,11 @@ function renderSvGrid() {
   if (badge) badge.innerHTML = errCount ? `<span class="tag tag-red">${errCount} row(s) with errors</span>` : (S.sv.rows.length ? `<span class="tag tag-green">✓ No errors</span>` : '');
   if (!S.sv.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet. Upload a survey file or add rows manually.</p>'; return; }
   const delMode=S.deleteMode.sv;
+  const displayRows = sortedRows(S.sv.rows, 'sv');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#svGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th><th>Shop ID *</th><th>Shop Name</th><th>Category Name *</th><th>Sections</th><th>Survey Questions</th><th>Question Type *</th><th>Answers</th><th>Question Flag *</th></tr></thead><tbody>`;
-  S.sv.rows.forEach((row,idx) => {
+    <th>#</th>${sth('sv','shopId','Shop ID *')}<th>Shop Name</th>${sth('sv','categoryName','Category Name *')}<th>Sections</th><th>Survey Questions</th>${sth('sv','questionType','Question Type *')}<th>Answers</th>${sth('sv','questionFlag','Question Flag *')}</tr></thead><tbody>`;
+  displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
     const answersLocked = ['sos','price','date','phototext'].includes(row.questionType);
     html += `<tr class="${Object.keys(e).length?'has-err':''}">
@@ -3892,6 +3909,30 @@ function renderSectionGrid(section) {
   else if (section==='sam') renderSamGrid();
   else if (section==='sv') renderSvGrid();
   else if (section==='univ') renderUniverseGrid();
+}
+
+// ── Sort utilities ──
+function setSort(grid, col) {
+  if (_sort[grid].col === col) _sort[grid].dir *= -1;
+  else { _sort[grid].col = col; _sort[grid].dir = 1; }
+  ({sm:renderSmGrid,um:renderUmGrid,sch:renderSchGrid,univ:renderUniverseGrid,
+    sku:renderSkuGrid,sam:renderSamGrid,sv:renderSvGrid}[grid] || (()=>{}))();
+}
+function sortedRows(rows, grid) {
+  const {col, dir} = _sort[grid]||{col:'',dir:1};
+  if (!col) return rows;
+  return [...rows].sort((a,b)=>{
+    const av=(a[col]||'').toString().toLowerCase(), bv=(b[col]||'').toString().toLowerCase();
+    const an=parseFloat(a[col]), bn=parseFloat(b[col]);
+    if (!isNaN(an)&&!isNaN(bn)) return (an-bn)*dir;
+    return (av<bv?-1:av>bv?1:0)*dir;
+  });
+}
+function sth(grid, col, label) {
+  const {col:sc,dir:sd}=_sort[grid]||{col:'',dir:1};
+  const active=sc===col, cls=active?(sd===1?'asc':'desc'):'';
+  const icon=active?(sd===1?'▲':'▼'):'<span style="opacity:.28;font-size:10px">⇅</span>';
+  return `<th class="sth${active?' '+cls:''}" onclick="setSort('${grid}','${col}')">${escHtml(label)} ${icon}</th>`;
 }
 
 // ============================================================
