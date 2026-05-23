@@ -775,29 +775,9 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="retailer" onclick="setGroupBy('retailer')">Retailer</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="regionArea" onclick="setGroupBy('regionArea')">Region</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="storeType" onclick="setGroupBy('storeType')">Store Type</button>
-      <span id="customGbBtnWrap" style="display:none">
-        <button class="btn btn-secondary btn-sm gb-btn" data-groupby="__custom__" id="customGbBtn" onclick="setGroupBy('__custom__')">Custom: —</button>
-      </span>
-      <button class="btn btn-secondary btn-sm" onclick="toggleCustomGroupSetup()" style="border-style:dashed;font-size:11.5px">+ Custom hierarchy…</button>
+      <span id="samHierarchyBtns"></span>
     </div>
-
-    <!-- Custom hierarchy setup panel -->
-    <div id="customGroupSetup" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;margin-bottom:10px">
-      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Define a custom grouping field</div>
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
-        <div>
-          <label style="font-size:11.5px;color:#6b7280;display:block;margin-bottom:3px">Field name (e.g. Zone, Channel, Territory)</label>
-          <input id="customGbFieldName" type="text" placeholder="e.g. Zone" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12.5px;width:180px">
-        </div>
-        <div>
-          <label style="font-size:11.5px;color:#6b7280;display:block;margin-bottom:3px">Upload mapping CSV <span style="color:#9ca3af">(2 cols: Store ID, Value)</span></label>
-          <input id="customGbFileInput" type="file" accept=".csv" style="font-size:12px" onchange="processCustomGroupByFile(this)">
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="applyCustomGroupBy()">Apply &amp; Group</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearCustomGroupBy()" style="color:#dc2626;border-color:#fca5a5">Clear</button>
-      </div>
-      <div id="customGbPreview" style="margin-top:8px;font-size:11.5px;color:#6b7280"></div>
-    </div>
+    <div id="samHierarchyPrompt" style="display:none;margin-bottom:10px"></div>
 
     <!-- Bulk action bar (individual view only) -->
     <div id="samBulkBar" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -962,7 +942,7 @@ const S = {
   projectName: '',
   deleteMode: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false, univ: false },
   confirmed: { sm: false, um: false, sch: false, sku: false, sam: false, sv: false },
-  sm: { rows: [], customHeaders: Array(12).fill('') },
+  sm: { rows: [], customHeaders: Array(12).fill(''), hierarchyFields: [] },
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
   sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [], npdSkuNames: [], coreSkuNames: [] },
@@ -979,7 +959,7 @@ function switchTab(id) {
   if (id === 't2') { renderSmCustomColInputs(); renderSmGrid(); }
   if (id === 't3') { renderUmGrid(); renderSchGrid(); }
   if (id === 't4') { renderReservedClassPicker(); renderUniverseGrid(); if(S.sku.universeConfirmed) renderAssortmentPhase(); renderSkuGrid(); }
-  if (id === 't5') { renderShelfCombos(); renderStoreSetup(); renderSamGrid(); }
+  if (id === 't5') { renderGroupByButtons(); renderShelfCombos(); renderStoreSetup(); renderSamGrid(); }
   if (id === 't6') { renderSvGrid(); }
   if (id === 't7') { renderDlGrid(); }
 }
@@ -1336,7 +1316,19 @@ function showSmMapper(data, fields, uploadType, wrapId) {
     </select></td></tr>`;
   });
   html += `</tbody></table>
-  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+  <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px">
+    <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:3px">📊 Hierarchy Fields <span style="font-size:11.5px;font-weight:400;color:#6b7280">— optional, for store grouping on the SAM tab</span></div>
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Check any columns to import as hierarchy grouping fields (Zone, Channel, Territory, etc.). These become Group By options on the Store-Assortment Mapping tab.</p>
+    <table style="font-size:12px"><tbody>
+    ${fields.map((f,fi)=>`<tr>
+      <td style="padding:3px 6px"><input type="checkbox" id="hier_cb_${fi}"></td>
+      <td style="padding:3px 10px 3px 4px;color:#374151"><code>${escHtml(f)}</code></td>
+      <td style="padding:3px 0"><input type="text" id="hier_name_${fi}" value="${escHtml(f)}" placeholder="Field label"
+        style="border:1px solid #d1d5db;border-radius:4px;padding:3px 8px;font-size:12px;width:160px"></td>
+    </tr>`).join('')}
+    </tbody></table>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
     <button class="btn btn-primary btn-sm" style="background:${cfg.color}" onclick="applySmMapping('${uploadType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import (${cfg.label})</button>
     <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
   </div></div>`;
@@ -1346,7 +1338,6 @@ function showSmMapper(data, fields, uploadType, wrapId) {
 function applySmMapping(uploadType, dataKey, wrap) {
   const cfg = SM_CONFIGS[uploadType];
   const rawData = window[dataKey] || [];
-  // Strip empty rows — rows where every value is blank
   const data = rawData.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const selects = wrap.querySelectorAll('select[data-src]');
   const mapping = {};
@@ -1356,13 +1347,36 @@ function applySmMapping(uploadType, dataKey, wrap) {
     Object.entries(mapping).forEach(([src, tgt]) => {
       if (srcRow[src] !== undefined) row[tgt] = String(srcRow[src]).trim();
     });
-    // Force all config fields last — always override source values
     Object.entries(cfg.forceFields).forEach(([k,v]) => { row[k] = v; });
     return row;
+  });
+  // Process hierarchy field selections
+  const fields = Object.keys(data[0] || {});
+  let hierSlot = 0;
+  const usedSlots = () => new Set([
+    ...S.sm.hierarchyFields.map(h=>h.idx),
+    ...S.sm.customHeaders.map((h,i)=>h.trim()?i:-1).filter(i=>i>=0)
+  ]);
+  const advanceSlot = () => { const u=usedSlots(); while(hierSlot<12&&u.has(hierSlot)) hierSlot++; };
+  advanceSlot();
+  fields.forEach((f, fi) => {
+    if (hierSlot >= 12) return;
+    const cb = wrap.querySelector('#hier_cb_' + fi);
+    if (!cb || !cb.checked) return;
+    const nameEl = wrap.querySelector('#hier_name_' + fi);
+    const label = (nameEl?.value || f).trim() || f;
+    const cKey = 'c' + (hierSlot + 1);
+    S.sm.customHeaders[hierSlot] = label;
+    rows.forEach((row, ri) => { if (data[ri]?.[f] !== undefined) row[cKey] = String(data[ri][f]).trim(); });
+    if (!S.sm.hierarchyFields.find(h => h.idx === hierSlot)) S.sm.hierarchyFields.push({idx: hierSlot, label});
+    hierSlot++;
+    advanceSlot();
   });
   S.sm.rows.push(...rows);
   resetConfirm('sm');
   renderSmGrid();
+  renderSmCustomColInputs();
+  renderGroupByButtons();
   updateDots();
   wrap.remove();
 }
@@ -2828,11 +2842,20 @@ function renderShelfCombos() {
 }
 
 // ── Store Assignment ──
+function renderGroupByButtons() {
+  const container = document.getElementById('samHierarchyBtns');
+  if (!container) return;
+  const fields = S.sm.hierarchyFields || [];
+  container.innerHTML = fields.map(h => {
+    const key = 'c' + (h.idx + 1);
+    const active = S.sam.groupBy === key;
+    return `<button class="btn btn-secondary btn-sm gb-btn" data-groupby="${escAttr(key)}" onclick="setGroupBy('${escAttr(key)}')"
+      style="${active?'background:#eff6ff;color:#2563eb;border-color:#bfdbfe;font-weight:600':''}">${escHtml(h.label)}</button>`;
+  }).join('');
+}
 function setGroupBy(val) {
-  if (val === '__custom__' && !S.sam.customGroupBy.fieldName) {
-    toggleCustomGroupSetup(); return;
-  }
   S.sam.groupBy = val;
+  renderGroupByButtons();
   document.querySelectorAll('.gb-btn').forEach(btn => {
     const active = btn.dataset.groupby === val;
     btn.style.background = active ? '#eff6ff' : '';
@@ -2959,6 +2982,16 @@ function renderStoreSetup() {
   const groupBy=S.sam.groupBy||'';
   let html='';
 
+  // Update hierarchy prompt
+  const prompt=document.getElementById('samHierarchyPrompt');
+  if (prompt) {
+    const hasHier=(S.sm.hierarchyFields||[]).length>0;
+    if (!hasHier && stores.length && !groupBy) {
+      prompt.style.display='';
+      prompt.innerHTML=`<div class="alert alert-info" style="margin-bottom:0">ℹ️ No hierarchy fields defined in Store Master yet — you can't group stores by Zone, Channel, etc. <button class="btn btn-secondary btn-sm" onclick="switchTab('t2')" style="margin-left:8px">Go to Store Master →</button> <span style="font-size:11.5px;color:#6b7280;margin-left:8px">or assign stores individually below.</span></div>`;
+    } else { prompt.style.display='none'; }
+  }
+
   if (!groupBy) {
     // ── FLAT VIEW ──
     html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
@@ -2995,8 +3028,11 @@ function renderStoreSetup() {
   } else {
     // ── GROUPED TABLE VIEW ──
     const isCustom = groupBy === '__custom__';
-    const customMapping = S.sam.customGroupBy.mapping || {};
-    const fieldLabel = isCustom ? (S.sam.customGroupBy.fieldName||'Custom') : ({retailer:'Retailer',regionArea:'Region',storeType:'Store Type'}[groupBy]||groupBy);
+    const customMapping = S.sam.customGroupBy?.mapping || {};
+    const hierField = (S.sm.hierarchyFields||[]).find(h=>'c'+(h.idx+1)===groupBy);
+    const fieldLabel = isCustom
+      ? (S.sam.customGroupBy?.fieldName||'Custom')
+      : (hierField?.label || {retailer:'Retailer',regionArea:'Region',storeType:'Store Type'}[groupBy] || groupBy);
 
     const groupMap={};
     stores.forEach(store=>{
@@ -3600,13 +3636,8 @@ function loadSession(input) {
       if (!S.sam.storeSetup) S.sam.storeSetup=[];
       if (!S.sam.groupBy) S.sam.groupBy='';
       if (!S.sam.customGroupBy) S.sam.customGroupBy={fieldName:'',mapping:{}};
-      // Restore custom group button label if defined
-      if (S.sam.customGroupBy.fieldName) {
-        const btn=document.getElementById('customGbBtn');
-        if(btn) btn.textContent='Custom: '+S.sam.customGroupBy.fieldName;
-        const wrap=document.getElementById('customGbBtnWrap');
-        if(wrap) wrap.style.display='';
-      }
+      if (!S.sm.hierarchyFields) S.sm.hierarchyFields=[];
+      renderGroupByButtons();
       // Migrate old combo format (inline sections → sectionIds)
       S.sam.shelfCombos.forEach(c=>{
         if (!c.sectionIds && c.sections && c.sections.length) {
