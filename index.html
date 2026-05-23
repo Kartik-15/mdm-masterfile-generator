@@ -769,12 +769,34 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
     <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a shelf combination to each store. Assign individually, in bulk using checkboxes, or group stores by hierarchy.</p>
 
     <!-- Group By control -->
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Group by:</span>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="" onclick="setGroupBy('')" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;font-weight:600">Individual Stores</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="retailer" onclick="setGroupBy('retailer')">Retailer</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="regionArea" onclick="setGroupBy('regionArea')">Region</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="storeType" onclick="setGroupBy('storeType')">Store Type</button>
+      <span id="customGbBtnWrap" style="display:none">
+        <button class="btn btn-secondary btn-sm gb-btn" data-groupby="__custom__" id="customGbBtn" onclick="setGroupBy('__custom__')">Custom: —</button>
+      </span>
+      <button class="btn btn-secondary btn-sm" onclick="toggleCustomGroupSetup()" style="border-style:dashed;font-size:11.5px">+ Custom hierarchy…</button>
+    </div>
+
+    <!-- Custom hierarchy setup panel -->
+    <div id="customGroupSetup" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px 14px;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px">Define a custom grouping field</div>
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap">
+        <div>
+          <label style="font-size:11.5px;color:#6b7280;display:block;margin-bottom:3px">Field name (e.g. Zone, Channel, Territory)</label>
+          <input id="customGbFieldName" type="text" placeholder="e.g. Zone" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12.5px;width:180px">
+        </div>
+        <div>
+          <label style="font-size:11.5px;color:#6b7280;display:block;margin-bottom:3px">Upload mapping CSV <span style="color:#9ca3af">(2 cols: Store ID, Value)</span></label>
+          <input id="customGbFileInput" type="file" accept=".csv" style="font-size:12px" onchange="processCustomGroupByFile(this)">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="applyCustomGroupBy()">Apply &amp; Group</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearCustomGroupBy()" style="color:#dc2626;border-color:#fca5a5">Clear</button>
+      </div>
+      <div id="customGbPreview" style="margin-top:8px;font-size:11.5px;color:#6b7280"></div>
     </div>
 
     <!-- Bulk action bar (individual view only) -->
@@ -944,7 +966,7 @@ const S = {
   um: { rows: [] },
   sch: { rows: [], globalStartDate: '', globalEndDate: '' },
   sku: { mode: 'category', useAssortment: null, trackCompOsa: null, universeRows: [], universeConfirmed: false, assortmentDefs: [], reservedSelected: ['Others'], rows: [], npdSkuNames: [], coreSkuNames: [] },
-  sam: { rows: [], shelfSections: [], shelfCombos: [], storeSetup: [], groupBy: '' },
+  sam: { rows: [], shelfSections: [], shelfCombos: [], storeSetup: [], groupBy: '', customGroupBy: { fieldName: '', mapping: {} } },
   sv: { rows: [] }
 };
 
@@ -2807,6 +2829,9 @@ function renderShelfCombos() {
 
 // ── Store Assignment ──
 function setGroupBy(val) {
+  if (val === '__custom__' && !S.sam.customGroupBy.fieldName) {
+    toggleCustomGroupSetup(); return;
+  }
   S.sam.groupBy = val;
   document.querySelectorAll('.gb-btn').forEach(btn => {
     const active = btn.dataset.groupby === val;
@@ -2819,16 +2844,78 @@ function setGroupBy(val) {
   if (bar) bar.style.display = val ? 'none' : '';
   renderStoreSetup();
 }
-function applyGroupAssignment(gid) {
-  const container = document.getElementById(gid);
-  if (!container) return;
-  const groupByField = container.dataset.groupby;
-  const groupName = container.dataset.groupname;
+let _customGbParsed = {};  // temp storage while user is filling the form
+function toggleCustomGroupSetup() {
+  const p = document.getElementById('customGroupSetup');
+  if (!p) return;
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+function processCustomGroupByFile(input) {
+  const file = input.files[0]; if (!file) return;
+  Papa.parse(file, {
+    header: false, skipEmptyLines: true,
+    complete: res => {
+      _customGbParsed = {};
+      res.data.forEach(row => {
+        const sid = (row[0]||'').toString().trim();
+        const val = (row[1]||'').toString().trim();
+        if (sid && val) _customGbParsed[sid] = val;
+      });
+      const groups = {};
+      Object.values(_customGbParsed).forEach(v => { groups[v] = (groups[v]||0)+1; });
+      const groupList = Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,n])=>`<strong>${escHtml(k)}</strong> (${n})`).join(', ');
+      const more = Object.keys(groups).length > 6 ? ` … +${Object.keys(groups).length-6} more` : '';
+      const prev = document.getElementById('customGbPreview');
+      if (prev) prev.innerHTML = `✅ ${Object.keys(_customGbParsed).length} stores mapped across ${Object.keys(groups).length} groups: ${groupList}${more}`;
+    }
+  });
+}
+function applyCustomGroupBy() {
+  const nameEl = document.getElementById('customGbFieldName');
+  const fieldName = (nameEl?.value||'').trim();
+  if (!fieldName) { alert('Enter a field name first.'); nameEl?.focus(); return; }
+  if (!Object.keys(_customGbParsed).length) { alert('Upload a mapping CSV first.'); return; }
+  S.sam.customGroupBy = { fieldName, mapping: {..._customGbParsed} };
+  const btn = document.getElementById('customGbBtn');
+  if (btn) btn.textContent = 'Custom: ' + fieldName;
+  const wrap = document.getElementById('customGbBtnWrap');
+  if (wrap) wrap.style.display = '';
+  document.getElementById('customGroupSetup').style.display = 'none';
+  setGroupBy('__custom__');
+}
+function clearCustomGroupBy() {
+  S.sam.customGroupBy = { fieldName: '', mapping: {} };
+  _customGbParsed = {};
+  const wrap = document.getElementById('customGbBtnWrap');
+  if (wrap) wrap.style.display = 'none';
+  const prev = document.getElementById('customGbPreview');
+  if (prev) prev.innerHTML = '';
+  const nameEl = document.getElementById('customGbFieldName');
+  if (nameEl) nameEl.value = '';
+  const fi = document.getElementById('customGbFileInput');
+  if (fi) fi.value = '';
+  if (S.sam.groupBy === '__custom__') setGroupBy('');
+}
+function toggleGroupStores(gid) {
+  const el = document.getElementById(gid+'_stores');
+  if (!el) return;
+  const btn = document.getElementById(gid+'_toggle');
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (btn) btn.textContent = hidden ? '▾' : '▸';
+}
+function applyGroupAssignment(gid, groupByField, groupName) {
   const comboId = document.getElementById(gid+'_combo')?.value || '';
   const assortmentName = document.getElementById(gid+'_assort')?.value || '';
   if (!comboId && !assortmentName) { alert('Select at least a combo or assortment to apply.'); return; }
   if (!S.sam.storeSetup) S.sam.storeSetup = [];
-  const groupStores = S.sm.rows.filter(r => r.storeId && (r[groupByField]||'').trim() === groupName);
+  let groupStores;
+  if (groupByField === '__custom__') {
+    const mapping = S.sam.customGroupBy.mapping || {};
+    groupStores = S.sm.rows.filter(r => r.storeId && (mapping[r.storeId]||'(unset)') === groupName);
+  } else {
+    groupStores = S.sm.rows.filter(r => r.storeId && (r[groupByField]||'').trim() === groupName);
+  }
   groupStores.forEach(store => {
     let e = S.sam.storeSetup.find(e => e.storeId === store.storeId);
     if (!e) { e = {storeId: store.storeId, assortmentName: '', comboId: ''}; S.sam.storeSetup.push(e); }
@@ -2906,56 +2993,83 @@ function renderStoreSetup() {
     });
     html+='</tbody></table>';
   } else {
-    // ── GROUPED VIEW ──
+    // ── GROUPED TABLE VIEW ──
+    const isCustom = groupBy === '__custom__';
+    const customMapping = S.sam.customGroupBy.mapping || {};
+    const fieldLabel = isCustom ? (S.sam.customGroupBy.fieldName||'Custom') : ({retailer:'Retailer',regionArea:'Region',storeType:'Store Type'}[groupBy]||groupBy);
+
     const groupMap={};
     stores.forEach(store=>{
-      const key=(store[groupBy]||'').trim()||'(unset)';
+      const key = isCustom
+        ? (customMapping[store.storeId]||'(unmapped)').trim()
+        : (store[groupBy]||'').trim()||'(unset)';
       if(!groupMap[key]) groupMap[key]=[];
       groupMap[key].push(store);
     });
+
+    const groupAssOpts=['<option value="">— assortment —</option>',
+      `<option value="__FULL_UNIVERSE__">⭐ Full Universe (all SKUs)</option>`,
+      ...assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`)
+    ].join('');
+    const groupComboOpts=['<option value="">— combo —</option>',
+      ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}">${escHtml(co.name||'(unnamed combo)')}</option>`)
+    ].join('');
+
+    const thStyle='padding:8px 10px;background:#f3f4f6;border:1px solid #e5e7eb;font-size:12px;color:#374151;text-align:left;white-space:nowrap';
+    html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+      <thead><tr>
+        <th style="${thStyle};width:32px;text-align:center"></th>
+        <th style="${thStyle}">${escHtml(fieldLabel)}</th>
+        <th style="${thStyle};text-align:center">Stores</th>
+        <th style="${thStyle};min-width:160px">Assortment</th>
+        <th style="${thStyle};min-width:160px">Shelf Combo</th>
+        <th style="${thStyle};width:60px;text-align:center">Status</th>
+        <th style="${thStyle};width:70px;text-align:center">Apply</th>
+      </tr></thead><tbody>`;
+
     Object.entries(groupMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([groupName,groupStores],gIdx)=>{
       const gid='grp_'+gIdx;
       const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
       const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
-      const statusSummary=done===groupStores.length
-        ?`<span style="font-size:11px;color:#065f46;font-weight:600">✓ All set (${done}/${groupStores.length})</span>`
-        :(partial>0
-          ?`<span style="font-size:11px;color:#92400e;font-weight:600">${done} set, ${partial} partial, ${groupStores.length-done-partial} empty</span>`
-          :`<span style="font-size:11px;color:#991b1b;font-weight:600">${done}/${groupStores.length} set</span>`);
-      const groupAssOpts=['<option value="">— assortment —</option>',
-        `<option value="__FULL_UNIVERSE__">⭐ Full Universe</option>`,
-        ...assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`)
-      ].join('');
-      const groupComboOpts=['<option value="">— combo —</option>',
-        ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}">${escHtml(co.name||'(unnamed combo)')}</option>`)
-      ].join('');
-      html+=`<div id="${gid}" data-groupby="${escAttr(groupBy)}" data-groupname="${escAttr(groupName)}" style="border:1px solid #e2e8f0;border-radius:7px;margin-bottom:12px;overflow:hidden">
-        <div style="background:#f8fafc;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1px solid #e2e8f0">
-          <div style="display:flex;align-items:center;gap:8px">
-            <strong style="font-size:13px;color:#1e3a5f">${escHtml(groupName)}</strong>
-            <span style="font-size:11.5px;color:#6b7280">${groupStores.length} store${groupStores.length!==1?'s':''}</span>
-            ${statusSummary}
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="font-size:11px;color:#6b7280;white-space:nowrap">Apply to all:</span>
-            <select id="${gid}_assort" style="border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px;min-width:140px">${groupAssOpts}</select>
-            <select id="${gid}_combo" style="border:1px solid #d1d5db;border-radius:4px;padding:4px 8px;font-size:12px;min-width:140px">${groupComboOpts}</select>
-            <button class="btn btn-primary btn-sm" onclick="applyGroupAssignment('${gid}')">Apply</button>
-          </div>
-        </div>
-        <div style="padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px">`;
+      const rowBg=done===groupStores.length?'#f0fdf4':partial>0?'#fffbeb':'#fff';
+      let statusCell;
+      if (done===groupStores.length) statusCell=`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ ${done}/${groupStores.length}</span>`;
+      else if (partial>0) statusCell=`<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">${done}/${groupStores.length}</span>`;
+      else statusCell=`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:10px;font-weight:600">0/${groupStores.length}</span>`;
+      const tdStyle=`padding:6px 8px;border:1px solid #e5e7eb;background:${rowBg}`;
+      html+=`<tr>
+        <td style="${tdStyle};text-align:center">
+          <button id="${gid}_toggle" onclick="toggleGroupStores('${gid}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#6b7280;padding:0;line-height:1">▸</button>
+        </td>
+        <td style="${tdStyle}"><strong style="color:#1e3a5f">${escHtml(groupName)}</strong></td>
+        <td style="${tdStyle};text-align:center;color:#6b7280;font-size:12px">${groupStores.length}</td>
+        <td style="${tdStyle};padding:4px 6px">
+          <select id="${gid}_assort" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${groupAssOpts}</select>
+        </td>
+        <td style="${tdStyle};padding:4px 6px">
+          <select id="${gid}_combo" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${groupComboOpts}</select>
+        </td>
+        <td style="${tdStyle};text-align:center">${statusCell}</td>
+        <td style="${tdStyle};text-align:center">
+          <button class="btn btn-primary btn-sm" onclick="applyGroupAssignment('${gid}','${escAttr(groupBy)}','${escAttr(groupName)}')" style="white-space:nowrap">Apply</button>
+        </td>
+      </tr>
+      <tr id="${gid}_stores" style="display:none">
+        <td colspan="7" style="padding:0;border:1px solid #e5e7eb;border-top:none">
+          <div style="padding:8px 12px;background:#f9fafb;display:flex;flex-wrap:wrap;gap:5px">`;
       groupStores.forEach(store=>{
         const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
-        const comboLabel=setup.comboId?(S.sam.shelfCombos.find(c=>c.id===setup.comboId)?.name||'?'):'—';
+        const comboLabel=setup.comboId?(S.sam.shelfCombos.find(co=>co.id===setup.comboId)?.name||'?'):'—';
         const assLabel=setup.assortmentName==='__FULL_UNIVERSE__'?'⭐ Full Universe':(setup.assortmentName||'—');
-        html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:5px 9px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combo: ${escAttr(comboLabel)}">
+        html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:4px 8px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combo: ${escAttr(comboLabel)}">
           <span style="color:#374151">${escHtml(store.storeId)}${store.storeName?' — '+escHtml(store.storeName):''}</span>
           ${statusBadge(setup)}
         </div>`;
       });
-      html+=`</div></div>`;
+      html+=`</div></td></tr>`;
     });
-    if (!html) html='<div class="alert alert-warn">No stores match the selected grouping field.</div>';
+    html+='</tbody></table>';
+    if (Object.keys(groupMap).length===0) html='<div class="alert alert-warn">No stores match the selected grouping field.</div>';
   }
 
   c.innerHTML=html;
@@ -3485,6 +3599,14 @@ function loadSession(input) {
       if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
       if (!S.sam.storeSetup) S.sam.storeSetup=[];
       if (!S.sam.groupBy) S.sam.groupBy='';
+      if (!S.sam.customGroupBy) S.sam.customGroupBy={fieldName:'',mapping:{}};
+      // Restore custom group button label if defined
+      if (S.sam.customGroupBy.fieldName) {
+        const btn=document.getElementById('customGbBtn');
+        if(btn) btn.textContent='Custom: '+S.sam.customGroupBy.fieldName;
+        const wrap=document.getElementById('customGbBtnWrap');
+        if(wrap) wrap.style.display='';
+      }
       // Migrate old combo format (inline sections → sectionIds)
       S.sam.shelfCombos.forEach(c=>{
         if (!c.sectionIds && c.sections && c.sections.length) {
