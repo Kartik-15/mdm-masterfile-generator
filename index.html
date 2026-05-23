@@ -455,6 +455,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
       <button class="btn btn-danger btn-sm" id="delSelBtn-sm" onclick="deleteSelected('sm')" style="display:none">Delete Selected</button>
       <button class="btn btn-secondary btn-sm" id="selAllBtn-sm" onclick="selectAllInSection('sm')" style="display:none">Select All</button>
       <span class="row-count" id="smRowCount">0 rows</span>
+      <button class="btn btn-secondary btn-sm" onclick="toggleGridWrap(this)" title="Hide the list" style="margin-left:4px">&#9660; Hide</button>
     </div>
     <div class="grid-wrap"><div id="smGridContainer"></div></div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -522,6 +523,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
         <button class="btn btn-danger btn-sm" id="delSelBtn-um" onclick="deleteSelected('um')" style="display:none">Delete Selected</button>
         <button class="btn btn-secondary btn-sm" id="selAllBtn-um" onclick="selectAllInSection('um')" style="display:none">Select All</button>
         <span class="row-count" id="umRowCount">0 rows</span>
+        <button class="btn btn-secondary btn-sm" onclick="toggleGridWrap(this)" title="Hide the list" style="margin-left:4px">&#9660; Hide</button>
       </div>
       <div class="grid-wrap"><div id="umGridContainer"></div></div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -595,6 +597,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
         <button class="btn btn-secondary btn-sm" id="delModeBtn-sch" onclick="toggleDeleteMode('sch')">🗑 Delete Rows</button>
         <button class="btn btn-danger btn-sm" id="delSelBtn-sch" onclick="deleteSelected('sch')" style="display:none">Delete Selected</button>
         <button class="btn btn-secondary btn-sm" id="selAllBtn-sch" onclick="selectAllInSection('sch')" style="display:none">Select All</button>
+        <button class="btn btn-secondary btn-sm" onclick="toggleGridWrap(this)" title="Hide the list">&#9660; Hide</button>
         <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
           <label style="font-size:12px;color:#6b7280;white-space:nowrap">Set all frequencies:</label>
           <select id="schBulkFreq" style="padding:3px 8px;border:1px solid #d1d5db;border-radius:5px;font-size:12px">
@@ -710,6 +713,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
       <button class="btn btn-danger btn-sm" id="delSelBtn-univ" onclick="deleteSelected('univ')" style="display:none">Delete Selected</button>
       <button class="btn btn-secondary btn-sm" id="selAllBtn-univ" onclick="selectAllInSection('univ')" style="display:none">Select All</button>
       <span class="row-count" id="univRowCount">0 rows</span>
+      <button class="btn btn-secondary btn-sm" onclick="toggleGridWrap(this)" title="Hide the list" style="margin-left:4px">&#9660; Hide</button>
     </div>
     <div class="grid-wrap"><div id="univGridContainer"></div></div>
     <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5e7eb;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -787,6 +791,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
         <button class="btn btn-danger btn-sm" id="delSelBtn-sku" onclick="deleteSelected('sku')" style="display:none">Delete Selected</button>
         <button class="btn btn-secondary btn-sm" id="selAllBtn-sku" onclick="selectAllInSection('sku')" style="display:none">Select All</button>
         <span class="row-count" id="skuRowCount">0 rows</span>
+        <button class="btn btn-secondary btn-sm" onclick="toggleGridWrap(this)" title="Hide the list" style="margin-left:4px">&#9660; Hide</button>
       </div>
       <div id="skuSummaryWrap" style="margin-bottom:10px"></div>
       <div class="grid-wrap"><div id="skuGridContainer"></div></div>
@@ -3998,6 +4003,18 @@ function toggleFieldRef(id) {
 // ============================================================
 // DELETE MODE
 // ============================================================
+function toggleGridWrap(btn) {
+  const toolbar = btn.closest('.grid-toolbar');
+  if (!toolbar) return;
+  let el = toolbar.nextElementSibling;
+  while (el && !el.classList.contains('grid-wrap')) el = el.nextElementSibling;
+  if (!el) return;
+  const hide = el.style.display !== 'none';
+  el.style.display = hide ? 'none' : '';
+  btn.innerHTML = hide ? '&#9654; Show' : '&#9660; Hide';
+  btn.title = hide ? 'Show the list' : 'Hide the list';
+}
+
 function toggleDeleteMode(section) {
   S.deleteMode[section] = !S.deleteMode[section];
   const btn = document.getElementById('delModeBtn-'+section);
