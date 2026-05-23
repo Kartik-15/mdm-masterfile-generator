@@ -1024,8 +1024,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
 // ============================================================
 // STATE
 // ============================================================
-let _id = 1;
-const uid = () => 'r' + (_id++);
+const uid = () => Math.random().toString(36).slice(2,9) + Math.random().toString(36).slice(2,6);
 let _lastValidation = null;  // null = not yet run; array = last runValidation() results
 
 const S = {
@@ -3049,7 +3048,9 @@ function removeShelfSection(id) {
   renderShelfSections();
 }
 function updateShelfSection(id,field,val) {
-  const s=(S.sam.shelfSections||[]).find(s=>s.id===id); if(s) s[field]=val;
+  const s=(S.sam.shelfSections||[]).find(s=>s.id===id); if(!s) return;
+  s[field]=val;
+  if (field==='name') renderShelfCombos();
 }
 function renderShelfSections() {
   const c=document.getElementById('samSectionsContainer'); if(!c) return;
@@ -3071,15 +3072,15 @@ function renderShelfSections() {
       <td style="border:1px solid #e5e7eb;padding:2px">
         <input type="text" value="${escHtml(sec.name)}" placeholder="e.g. Eye Level"
           style="width:100%;border:none;padding:5px 8px;font-size:12.5px;background:transparent;outline:none"
-          oninput="updateShelfSection('${sec.id}','name',this.value)">
+          oninput="updateShelfSection('${escAttr(sec.id)}','name',this.value)">
       </td>
       <td style="border:1px solid #e5e7eb;padding:2px">
         <input type="text" value="${escHtml(sec.imageLink)}" placeholder="https://... or leave blank"
           style="width:100%;border:none;padding:5px 8px;font-size:12.5px;background:transparent;outline:none"
-          oninput="updateShelfSection('${sec.id}','imageLink',this.value)">
+          oninput="updateShelfSection('${escAttr(sec.id)}','imageLink',this.value)">
       </td>
       <td style="border:1px solid #e5e7eb;text-align:center;padding:2px">
-        <button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 7px" onclick="removeShelfSection('${sec.id}')">×</button>
+        <button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 7px" onclick="removeShelfSection('${escAttr(sec.id)}')">×</button>
       </td>
     </tr>`;
   });
@@ -3098,15 +3099,20 @@ function removeShelfCombo(id) {
   S.sam.shelfCombos=(S.sam.shelfCombos||[]).filter(c=>c.id!==id);
   renderShelfCombos(); updateBulkCombos(); renderStoreSetup();
 }
+let _comboNameTimer;
 function updateComboName(id,val) {
-  const c=(S.sam.shelfCombos||[]).find(c=>c.id===id); if(c) c.name=val;
-  updateBulkCombos(); renderStoreSetup();
+  const combo=(S.sam.shelfCombos||[]).find(co=>co.id===id); if(!combo) return;
+  combo.name=val;
+  updateBulkCombos();
+  clearTimeout(_comboNameTimer);
+  _comboNameTimer=setTimeout(renderStoreSetup, 400);
 }
 function toggleComboSection(comboId,secId,checked) {
-  const c=(S.sam.shelfCombos||[]).find(c=>c.id===comboId); if(!c) return;
-  if (!c.sectionIds) c.sectionIds=[];
-  if (checked) { if (!c.sectionIds.includes(secId)) c.sectionIds.push(secId); }
-  else c.sectionIds=c.sectionIds.filter(id=>id!==secId);
+  const combo=(S.sam.shelfCombos||[]).find(co=>co.id===comboId); if(!combo) return;
+  if (!combo.sectionIds) combo.sectionIds=[];
+  if (checked) { if (!combo.sectionIds.includes(secId)) combo.sectionIds.push(secId); }
+  else combo.sectionIds=combo.sectionIds.filter(sid=>sid!==secId);
+  renderShelfCombos();
 }
 function renderShelfCombos() {
   const c=document.getElementById('samCombosContainer'); if(!c) return;
@@ -3125,24 +3131,24 @@ function renderShelfCombos() {
       <td style="border:1px solid #e5e7eb;padding:2px">
         <input type="text" value="${escHtml(combo.name)}" placeholder="e.g. Primary Placement"
           style="width:100%;border:none;padding:5px 8px;font-size:12.5px;font-weight:600;background:transparent;outline:none"
-          oninput="updateComboName('${combo.id}',this.value)">
+          oninput="updateComboName('${escAttr(combo.id)}',this.value)">
       </td>
       ${sections.map(sec=>{
         const checked=(combo.sectionIds||[]).includes(sec.id);
         return `<td style="border:1px solid #e5e7eb;text-align:center;padding:6px">
-          <input type="checkbox" ${checked?'checked':''} onchange="toggleComboSection('${combo.id}','${sec.id}',this.checked)">
+          <input type="checkbox" ${checked?'checked':''} onchange="toggleComboSection('${escAttr(combo.id)}','${escAttr(sec.id)}',this.checked)">
         </td>`;
       }).join('')}
       <td style="border:1px solid #e5e7eb;text-align:center;padding:2px">
-        <button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 7px" onclick="removeShelfCombo('${combo.id}')">×</button>
+        <button style="border:none;background:none;cursor:pointer;color:#ef4444;font-size:16px;line-height:1;padding:2px 7px" onclick="removeShelfCombo('${escAttr(combo.id)}')">×</button>
       </td>
     </tr>`;
   });
   html+='</tbody></table></div>';
   // Show preview of each combo's sections
-  const preview=combos.filter(c=>(c.sectionIds||[]).length>0).map(c=>{
-    const secs=(c.sectionIds||[]).map(sid=>sections.find(s=>s.id===sid)?.name).filter(Boolean);
-    return `<span style="display:inline-block;margin:3px 6px 3px 0;font-size:11.5px;color:#6b7280"><strong style="color:#374151">${escHtml(c.name||'(unnamed)')}:</strong> ${escHtml(secs.join(', ')||'—')}</span>`;
+  const preview=combos.filter(co=>(co.sectionIds||[]).length>0).map(co=>{
+    const secs=(co.sectionIds||[]).map(sid=>sections.find(s=>s.id===sid)?.name).filter(Boolean);
+    return `<span style="display:inline-block;margin:3px 6px 3px 0;font-size:11.5px;color:#6b7280"><strong style="color:#374151">${escHtml(co.name||'(unnamed)')}:</strong> ${escHtml(secs.join(', ')||'—')}</span>`;
   }).join('');
   if (preview) html+=`<div style="margin-top:8px;padding:8px 10px;background:#f9fafb;border-radius:5px;font-size:11.5px;color:#6b7280"><strong style="color:#374151">Preview: </strong>${preview}</div>`;
   c.innerHTML=html;
