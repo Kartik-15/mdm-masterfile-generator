@@ -856,7 +856,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
       <span class="card-title-left">🏷 Category Headings <span style="font-size:11px;font-weight:400;color:#9ca3af">(optional — display label shown above each category in the app)</span></span>
       <button class="btn btn-secondary btn-sm" onclick="renderCategoryHeadings()">↻ Refresh</button>
     </div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:12px">If your project uses category headings, enter the heading for each category here. It will be filled in automatically when you generate SAM rows below. Leave blank if not used.</p>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:12px">Free-text label describing the placement type for each category (e.g. "Primary Placement", "Secondary Shelf"). This is a mandatory column in the output file — enter a value for each category, or use the same heading across all if placement type doesn't vary.</p>
     <div id="samCatHeadingsContainer"><p style="font-size:12.5px;color:#9ca3af">No categories found yet — add SKUs in the SKU Assortment tab first, then click ↻ Refresh.</p></div>
   </div>
 
@@ -3058,7 +3058,7 @@ function renderCategoryHeadings() {
   let html=`<table style="border-collapse:collapse;font-size:12.5px;width:100%;max-width:640px">
     <thead><tr>
       <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:left">Category Name</th>
-      <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:left">Category Heading <span style="font-weight:400;color:#9ca3af">(leave blank if same as category name)</span></th>
+      <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:left">Category Heading <span style="font-weight:400;color:#9ca3af">(free text — e.g. "Primary Placement", "Secondary Shelf")</span></th>
     </tr></thead><tbody>`;
   cats.forEach(cat=>{
     const val=S.sam.categoryHeadings[cat]||'';
