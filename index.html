@@ -1334,7 +1334,7 @@ function makeRow(section) {
   if (section==='sm') return {id:uid(),storeId:'',storeName:'',storeType:'Digital',testShop:'0',retailer:'',regionArea:'',lat:'',lng:'',...Object.fromEntries(Array.from({length:12},(_,i)=>['c'+(i+1),'']))};
   if (section==='um') return {id:uid(),userId:'',userName:'',password:'',monthlyDays:''};
   if (section==='sch') return {id:uid(),storeId:'',userId:'',startDate:'',frequency:'',endDate:'',customInterval:'',storeName:'',userName:''};
-  if (section==='sku') return {id:uid(),skuType:'',skuName:'',categoryName:'',assortmentName:'',storeMetaCol:'',coreFlag:'',npdFlag:'',regularOsa:'',sos:''};
+  if (section==='sku') return {id:uid(),skuType:'',skuName:'',categoryName:'',assortmentName:'',storeMetaCol:'',coreFlag:'0',npdFlag:'0',regularOsa:'0',sos:'0'};
   if (section==='sam') return {id:uid(),shopId:'',categoryHeading:'',categoryName:'',shelfSection:'',shelfImages:'',assortmentName:''};
   if (section==='sv') return {id:uid(),shopId:'',shopName:'',categoryName:'',sections:'',questions:'',questionType:'',answers:'',questionFlag:''};
   return {id:uid()};
@@ -2344,15 +2344,18 @@ function buildRows() {
   S.sku.rows=[];
   if (!S.sku.universeConfirmed) { syncReservedRows(); renderSkuGrid(); return; }
 
+  const _normFlags = r => { ['coreFlag','npdFlag','regularOsa','sos'].forEach(k=>{if(r[k]!=='0'&&r[k]!=='1')r[k]='0';}); };
+
   if (!S.sku.useAssortment) {
     // No assortments — universe rows are the output directly
     S.sku.universeRows.forEach(r=>S.sku.rows.push({...r, id:uid()}));
+    S.sku.rows.forEach(_normFlags);
     syncReservedRows();
     renderSkuGrid(); renderAssortmentPreview(); updateDots(); return;
   }
 
   // With assortments — each assortment gets the FULL universe (all self + all competitors).
-  // Reserved classes are added globally (no assortment) by syncReservedRows.
+  // Reserved classes are added per (category, assortment) pair by syncReservedRows.
   // Per-assortment NPD/Core flag lists apply overrides on top of universe defaults.
   const assKey = S.sku.mode==='category'?'assortmentName':'storeMetaCol';
 
@@ -2370,6 +2373,7 @@ function buildRows() {
       S.sku.rows.push(nr);
     });
   });
+  S.sku.rows.forEach(_normFlags);
   syncReservedRows();
   renderSkuGrid(); renderAssortmentPreview(); updateDots();
 }
@@ -2876,9 +2880,12 @@ function renderSkuGrid() {
     const catCell = isReserved
       ? `<td style="background:#f9fafb">${row.categoryName?`<input type="text" value="${escHtml(row.categoryName)}" readonly style="background:#f9fafb;color:#374151;font-style:italic">`:`<span style="color:#9ca3af;font-size:11px;padding:5px 7px;display:block">auto-filled</span>`}</td>`
       : `<td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSkuRow('${row.id}','categoryName',this.value)"></td>`;
+    const _aVal = (isCat?row.assortmentName:row.storeMetaCol)||'';
     const assortCell = isReserved
-      ? `<td style="background:#f0f9ff;text-align:center"><span style="font-size:11px;color:#0284c7;font-style:italic">— global —</span></td>`
-      : `<td><input type="text" value="${escHtml(isCat?row.assortmentName:row.storeMetaCol)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`;
+      ? (_aVal
+          ? `<td style="background:#f0f9ff"><input type="text" value="${escHtml(_aVal)}" readonly style="background:#f0f9ff;color:#0284c7;font-style:italic;width:100%"></td>`
+          : `<td style="background:#f0f9ff;text-align:center"><span style="font-size:11px;color:#0284c7;font-style:italic">— global —</span></td>`)
+      : `<td><input type="text" value="${escHtml(_aVal)}" onchange="updateSkuRow('${row.id}','${isCat?'assortmentName':'storeMetaCol'}',this.value)"></td>`;
     html += `<tr>
       ${delMode?(isReserved?'<td class="sel-col" style="background:#f9fafb"></td>':`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`):''}
       <td class="rn">${idx+1}</td>
@@ -2902,18 +2909,18 @@ function renderSkuGrid() {
 }
 
 function flagCell(row, key, e) {
+  const v=(row[key]==='1'||row[key]==='0')?row[key]:'0';
   return `<td class="${e[key]?'err':''}"><select onchange="updateSkuRow('${row.id}','${key}',this.value)">
-    <option value="" ${row[key]===''?'selected':''}>—</option>
-    <option value="1" ${row[key]==='1'?'selected':''}>1</option>
-    <option value="0" ${row[key]==='0'?'selected':''}>0</option>
+    <option value="1" ${v==='1'?'selected':''}>1</option>
+    <option value="0" ${v==='0'?'selected':''}>0</option>
   </select></td>`;
 }
 
 function skuFlagCell(row, key, e) {
+  const v=(row[key]==='1'||row[key]==='0')?row[key]:'0';
   return `<select onchange="updateSkuRow('${row.id}','${key}',this.value)">
-    <option value="" ${row[key]===''?'selected':''}>—</option>
-    <option value="1" ${row[key]==='1'?'selected':''}>1</option>
-    <option value="0" ${row[key]==='0'?'selected':''}>0</option>
+    <option value="1" ${v==='1'?'selected':''}>1</option>
+    <option value="0" ${v==='0'?'selected':''}>0</option>
   </select>`;
 }
 
@@ -2924,7 +2931,7 @@ function validateSkuRows() {
     if (!row.skuName.trim()) e.skuName='SKU Name required';
     if (!row.categoryName.trim()) e.categoryName='Category Name required';
     ['coreFlag','npdFlag','regularOsa','sos'].forEach(k => {
-      if (row[k]!==''&&row[k]!=='0'&&row[k]!=='1') e[k]='Must be 0, 1, or blank';
+      if (row[k]!=='0'&&row[k]!=='1') e[k]='Must be 0 or 1';
     });
     // Reserved class rules — BLOCKER
     if (RESERVED_NAMES.has(row.skuName.trim()) && row.regularOsa === '1') {
@@ -2944,17 +2951,34 @@ function getAssortmentNames() {
   return [...names];
 }
 
-// Reserved-class rows are global: one per unique category from the universe (no assortment name).
-// They apply to all assortments and appear without an assortment value in the output.
+// Reserved-class rows: one per (category, assortment) pair when assortments are active,
+// or one per category when no assortments, or a single placeholder when no categories yet.
 function syncReservedRows() {
   const allCats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))];
+  const assKey=S.sku.mode==='category'?'assortmentName':'storeMetaCol';
+
+  // Build target (cat, assort) pairs
+  let targetKeys; // null = no categories yet (single placeholder); array otherwise
+  if (!allCats.length) {
+    targetKeys=null;
+  } else if (S.sku.useAssortment) {
+    const seen=new Set(); const pairs=[];
+    S.sku.rows.filter(r=>r.skuType!=='reserved'&&r.categoryName.trim()).forEach(r=>{
+      const cat=r.categoryName.trim(); const assort=(r[assKey]||'').trim();
+      const key=cat+'|||'+assort;
+      if (!seen.has(key)) { seen.add(key); pairs.push({cat,assort}); }
+    });
+    targetKeys=pairs.length?pairs:allCats.map(cat=>({cat,assort:''}));
+  } else {
+    targetKeys=allCats.map(cat=>({cat,assort:''}));
+  }
 
   RESERVED_SKU_CLASSES.forEach(cls=>{
     if (!S.sku.reservedSelected.includes(cls.name)) {
       S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name));
       return;
     }
-    if (!allCats.length) {
+    if (targetKeys===null) {
       if (!S.sku.rows.some(r=>r.skuType==='reserved'&&r.skuName===cls.name)) {
         const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name;
         row.regularOsa=cls.regularOsa; row.sos=cls.sos; row.coreFlag='0'; row.npdFlag='0';
@@ -2962,19 +2986,23 @@ function syncReservedRows() {
       }
       return;
     }
-    S.sku.rows=S.sku.rows.filter(r=>!(r.skuType==='reserved'&&r.skuName===cls.name&&!r.categoryName.trim()));
+    // Remove rows not in targetKeys (orphaned or no-category placeholders)
+    const targetSet=new Set(targetKeys.map(tk=>tk.cat+'|||'+tk.assort));
+    S.sku.rows=S.sku.rows.filter(r=>{
+      if (!(r.skuType==='reserved'&&r.skuName===cls.name)) return true;
+      if (!r.categoryName.trim()) return false; // remove no-category placeholders
+      const key=r.categoryName.trim()+'|||'+(r[assKey]||'').trim();
+      return targetSet.has(key);
+    });
+    // Add missing
     const existing=S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name);
-    allCats.forEach(cat=>{
-      if (!existing.find(r=>r.categoryName.trim()===cat)) {
+    targetKeys.forEach(({cat,assort})=>{
+      if (!existing.find(r=>r.categoryName.trim()===cat&&(r[assKey]||'').trim()===assort)) {
         const row=makeRow('sku'); row.skuType='reserved'; row.skuName=cls.name;
         row.regularOsa=cls.regularOsa; row.sos=cls.sos; row.coreFlag='0'; row.npdFlag='0';
-        row.categoryName=cat;
+        row.categoryName=cat; row[assKey]=assort;
         S.sku.rows.push(row);
       }
-    });
-    S.sku.rows.filter(r=>r.skuType==='reserved'&&r.skuName===cls.name&&r.categoryName.trim()).forEach(r=>{
-      if (!allCats.includes(r.categoryName.trim()))
-        S.sku.rows=S.sku.rows.filter(x=>x.id!==r.id);
     });
   });
   // Enforce: all reserved rows always have Core=0, NPD=0 and correct SOS/OSA from class definition
