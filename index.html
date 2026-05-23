@@ -820,8 +820,8 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
   <div class="step-guide">
     <div class="sg-title">How to fill this tab:</div>
     <ol>
-      <li><strong>Define Category Headings</strong> — each "combination" is a Category Heading (e.g. "Primary Placement"). Check which shelf sections belong under it. The combination name becomes the <code>Category Heading</code> column in the SAM output.</li>
-      <li><strong>Assign each store</strong> an assortment and a Category Heading in the Store Assignment table.</li>
+      <li><strong>Define Shelf Sections</strong> and group them into <strong>Shelf Combinations</strong>. Each combination has a name (internal label), a <strong>Category Heading</strong> (exported to SAM — defaults to "Primary Placement"), and the shelf sections that belong to it.</li>
+      <li><strong>Assign each store</strong> an assortment and a combination in the Store Assignment table.</li>
       <li>Click <strong>"Generate SAM Rows"</strong> — one row is created for every Store × Category pair, with shelf sections auto-filled from the combination.</li>
       <li>Review the output table and confirm when ready.</li>
     </ol>
@@ -829,8 +829,8 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
 
   <!-- CARD 1: Shelf Sections & Combinations -->
   <div class="card">
-    <div class="card-title"><span class="card-title-left">📐 Shelf Sections &amp; Category Headings</span></div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:16px"><strong>Step 1</strong> — define individual shelf sections (with optional image links). <strong>Step 2</strong> — create Category Headings (e.g. "Primary Placement") and check which sections belong under each. The Category Heading name is exported as the <code>Category Heading</code> column in the SAM file.</p>
+    <div class="card-title"><span class="card-title-left">📐 Shelf Sections &amp; Combinations</span></div>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:16px"><strong>Step 1</strong> — define individual shelf sections (with optional image links). <strong>Step 2</strong> — create named combinations, set the <code>Category Heading</code> for each (defaults to "Primary Placement"), and check which sections belong to it. The Category Heading is exported to the SAM file; the combination name is just the internal label used in store assignment.</p>
 
     <div style="margin-bottom:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -842,10 +842,10 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
 
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <strong style="font-size:12.5px;color:#374151">② Category Headings</strong>
-        <button class="btn btn-secondary btn-sm" onclick="addShelfCombo()">+ Add Category Heading</button>
+        <strong style="font-size:12.5px;color:#374151">② Shelf Combinations</strong>
+        <button class="btn btn-secondary btn-sm" onclick="addShelfCombo()">+ Add Combination</button>
       </div>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:8px">Each row is a Category Heading (e.g. "Primary Placement", "Secondary Placement"). Check which shelf sections sit under it. The name you enter here appears as the <code>Category Heading</code> value in every SAM row for that placement.</p>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:8px">Each row is a shelf combination. Give it a name (used in store assignment dropdowns), set its <code>Category Heading</code> (exported to SAM — default "Primary Placement"), and tick the sections that belong to it.</p>
       <div id="samCombosContainer"><p style="font-size:12.5px;color:#9ca3af;padding:6px 0">Define shelf sections above first, then create combinations.</p></div>
     </div>
   </div>
@@ -856,7 +856,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
       <span class="card-title-left">🏪 Store Assignment</span>
       <button class="btn btn-secondary btn-sm" onclick="renderStoreSetup()">↻ Refresh</button>
     </div>
-    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a Category Heading to each store. Assign individually, in bulk using checkboxes, or group stores by hierarchy.</p>
+    <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px">Assign an assortment and a combination to each store. Assign individually, in bulk using checkboxes, or group stores by hierarchy.</p>
 
     <!-- Group By control -->
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
@@ -873,7 +873,7 @@ body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
     <div id="samBulkBar" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Bulk Apply:</span>
       <select id="bulkComboSel" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px;min-width:160px">
-        <option value="">— select category heading —</option>
+        <option value="">— select combination —</option>
       </select>
       <select id="bulkAssortSel" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px;min-width:160px">
         <option value="">— select assortment —</option>
@@ -3092,7 +3092,7 @@ function renderShelfSections() {
 // ── Shelf Combinations (matrix of sections) ──
 function addShelfCombo() {
   if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
-  S.sam.shelfCombos.push({id:'sc_'+uid(), name:'', sectionIds:[]});
+  S.sam.shelfCombos.push({id:'sc_'+uid(), name:'', categoryHeading:'Primary Placement', sectionIds:[]});
   renderShelfCombos(); updateBulkCombos();
 }
 function removeShelfCombo(id) {
@@ -3107,6 +3107,10 @@ function updateComboName(id,val) {
   clearTimeout(_comboNameTimer);
   _comboNameTimer=setTimeout(renderStoreSetup, 400);
 }
+function updateComboCategoryHeading(id,val) {
+  const combo=(S.sam.shelfCombos||[]).find(co=>co.id===id); if(!combo) return;
+  combo.categoryHeading=val;
+}
 function toggleComboSection(comboId,secId,checked) {
   const combo=(S.sam.shelfCombos||[]).find(co=>co.id===comboId); if(!combo) return;
   if (!combo.sectionIds) combo.sectionIds=[];
@@ -3120,18 +3124,25 @@ function renderShelfCombos() {
   const combos=S.sam.shelfCombos||[];
   if (!sections.length) { c.innerHTML='<p style="font-size:12.5px;color:#9ca3af;padding:6px 0">Define shelf sections above first, then create combinations.</p>'; return; }
   if (!combos.length) { c.innerHTML='<p style="font-size:12.5px;color:#9ca3af;padding:6px 0">No combinations defined yet. Click "+ Add Combination" to create one.</p>'; return; }
-  let html=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12.5px;min-width:400px">
+  let html=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12.5px;min-width:500px">
     <thead><tr>
-      <th style="padding:6px 12px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151;min-width:180px">Category Heading</th>
+      <th style="padding:6px 12px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151;min-width:160px">Combination Name</th>
+      <th style="padding:6px 12px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:left;color:#374151;min-width:160px">Category Heading</th>
       ${sections.map(s=>`<th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:center;color:#374151;font-size:11.5px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="${escHtml(s.name)}">${escHtml(s.name||'(unnamed)')}</th>`).join('')}
       <th style="width:36px;background:#f3f4f6;border:1px solid #e5e7eb"></th>
     </tr></thead><tbody>`;
   combos.forEach(combo=>{
+    const catHead=combo.categoryHeading!=null?combo.categoryHeading:'Primary Placement';
     html+=`<tr>
       <td style="border:1px solid #e5e7eb;padding:2px">
-        <input type="text" value="${escHtml(combo.name)}" placeholder="e.g. Primary Placement"
+        <input type="text" value="${escHtml(combo.name)}" placeholder="e.g. GT Combo"
           style="width:100%;border:none;padding:5px 8px;font-size:12.5px;font-weight:600;background:transparent;outline:none"
           oninput="updateComboName('${escAttr(combo.id)}',this.value)">
+      </td>
+      <td style="border:1px solid #e5e7eb;padding:2px">
+        <input type="text" value="${escHtml(catHead)}" placeholder="Primary Placement"
+          style="width:100%;border:none;padding:5px 8px;font-size:12.5px;background:transparent;outline:none"
+          oninput="updateComboCategoryHeading('${escAttr(combo.id)}',this.value)">
       </td>
       ${sections.map(sec=>{
         const checked=(combo.sectionIds||[]).includes(sec.id);
@@ -3148,7 +3159,8 @@ function renderShelfCombos() {
   // Show preview of each combo's sections
   const preview=combos.filter(co=>(co.sectionIds||[]).length>0).map(co=>{
     const secs=(co.sectionIds||[]).map(sid=>sections.find(s=>s.id===sid)?.name).filter(Boolean);
-    return `<span style="display:inline-block;margin:3px 6px 3px 0;font-size:11.5px;color:#6b7280"><strong style="color:#374151">${escHtml(co.name||'(unnamed)')}:</strong> ${escHtml(secs.join(', ')||'—')}</span>`;
+    const ch=co.categoryHeading||'Primary Placement';
+    return `<span style="display:inline-block;margin:3px 6px 3px 0;font-size:11.5px;color:#6b7280"><strong style="color:#374151">${escHtml(co.name||'(unnamed)')}</strong><span style="color:#9ca3af"> [${escHtml(ch)}]</span>: ${escHtml(secs.join(', ')||'—')}</span>`;
   }).join('');
   if (preview) html+=`<div style="margin-top:8px;padding:8px 10px;background:#f9fafb;border-radius:5px;font-size:11.5px;color:#6b7280"><strong style="color:#374151">Preview: </strong>${preview}</div>`;
   c.innerHTML=html;
@@ -3315,7 +3327,7 @@ function renderStoreSetup() {
         <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">#</th>
         <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Store</th>
         <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Assortment</th>
-        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Category Heading</th>
+        <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Combination</th>
         <th style="width:74px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:center">Status</th>
       </tr></thead><tbody>`;
     sortedStores.forEach((store,idx)=>{
@@ -3373,7 +3385,7 @@ function renderStoreSetup() {
         <th style="${thStyle}">${escHtml(fieldLabel)}</th>
         <th style="${thStyle};text-align:center">Stores</th>
         <th style="${thStyle};min-width:160px">Assortment</th>
-        <th style="${thStyle};min-width:160px">Category Heading</th>
+        <th style="${thStyle};min-width:160px">Combination</th>
         <th style="${thStyle};width:60px;text-align:center">Status</th>
         <th style="${thStyle};width:70px;text-align:center">Apply</th>
       </tr></thead><tbody>`;
@@ -3404,7 +3416,7 @@ function renderStoreSetup() {
           `<option value="__FULL_UNIVERSE__"${selAssort==='__FULL_UNIVERSE__'?' selected':''}>⭐ Full Universe (all SKUs)</option>`,
           ...assortments.map(a=>`<option value="${escHtml(a)}"${selAssort===a?' selected':''}>${escHtml(a)}</option>`)
         ].join('');
-        const gComboOpts=['<option value="">— category heading —</option>',
+        const gComboOpts=['<option value="">— select combination —</option>',
           ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}"${selCombo===co.id?' selected':''}>${escHtml(co.name||'(unnamed heading)')}</option>`)
         ].join('');
 
@@ -3432,7 +3444,7 @@ function renderStoreSetup() {
           const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
           const comboLabel=setup.comboId?(S.sam.shelfCombos.find(co=>co.id===setup.comboId)?.name||'?'):'—';
           const assLabel=setup.assortmentName==='__FULL_UNIVERSE__'?'⭐ Full Universe':(setup.assortmentName||'—');
-          html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:4px 8px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Category Heading: ${escAttr(comboLabel)}">
+          html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:4px 8px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combination: ${escAttr(comboLabel)}">
             <span style="color:#374151">${escHtml(store.storeId)}${store.storeName?' — '+escHtml(store.storeName):''}</span>
             ${statusBadge(setup)}
           </div>`;
@@ -3475,7 +3487,7 @@ function updateBulkCombos() {
   if (!bcs||!bas) return;
   const combos=S.sam.shelfCombos||[];
   const assortments=getAssortmentNames();
-  bcs.innerHTML='<option value="">— select category heading —</option>'+combos.map(c=>`<option value="${escHtml(c.id)}">${escHtml(c.name||'(unnamed heading)')}</option>`).join('');
+  bcs.innerHTML='<option value="">— select combination —</option>'+combos.map(c=>`<option value="${escHtml(c.id)}">${escHtml(c.name||'(unnamed heading)')}</option>`).join('');
   bas.innerHTML='<option value="">— select assortment —</option><option value="__FULL_UNIVERSE__">⭐ Full Universe (all SKUs)</option>'+assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
 }
 function updateSamFlatSummary() {
@@ -3549,7 +3561,7 @@ function generateSamRows() {
       const row=makeRow('sam');
       row.shopId=setup.storeId;
       row.categoryName=cat;
-      row.categoryHeading=combo?.name||'';
+      row.categoryHeading=combo?.categoryHeading||'Primary Placement';
       row.assortmentName=outputAssortment;
       row.shelfSection=shelfSection;
       row.shelfImages=shelfImages;
@@ -4020,13 +4032,14 @@ function loadSession(input) {
       _hierMissingStores = new Set();
       _resetSort();
       renderGroupByButtons();
-      // Migrate old combo format (inline sections → sectionIds)
+      // Migrate old combo format (inline sections → sectionIds; missing categoryHeading)
       S.sam.shelfCombos.forEach(c=>{
         if (!c.sectionIds && c.sections && c.sections.length) {
           c.sections.forEach(s=>{ if(!S.sam.shelfSections.find(ss=>ss.id===s.id)) S.sam.shelfSections.push({id:s.id,name:s.name||'',imageLink:s.imageLink||''}); });
           c.sectionIds=c.sections.map(s=>s.id);
           delete c.sections;
         } else if (!c.sectionIds) { c.sectionIds=[]; }
+        if (c.categoryHeading==null) c.categoryHeading='Primary Placement';
       });
       document.getElementById('projectName').value = S.projectName || '';
       if (S.sch.globalStartDate) { const el=document.getElementById('schGlobalStartDate'); if(el) el.value=S.sch.globalStartDate; }
