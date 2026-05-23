@@ -1568,24 +1568,12 @@ function showSmMapper(data, fields, uploadType, wrapId) {
     </tr>`;
   }).join('');
 
-  const hierTbodyId = 'smHierTbody_' + uploadType;
-
   let html = `<div class="mapper-wrap">
     <div class="mapper-title">Column Mapper — ${data.length} rows · Auto-set: ${forceSummary}</div>
     ${reqTargets.length?`<div class="mapper-req-note"><strong>Required fields:</strong> ${reqTargets.map(t=>t.label).join(', ')} — map these before clicking Apply.</div>`:''}
     <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Select the column from your file that corresponds to each MDM field. Auto-guessed matches are pre-selected.</p>
     <table class="mapper"><thead><tr><th>MDM Field</th><th>← Column from your file</th></tr></thead>
     <tbody>${forcedRows}${fieldRows}</tbody></table>
-    <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px">
-      <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:3px">📊 Hierarchy Fields <span style="font-size:11.5px;font-weight:400;color:#6b7280">— optional, become Group By options on the SAM tab</span></div>
-      <p style="font-size:11.5px;color:#6b7280;margin-bottom:4px">Add a row for each extra field you want to group stores by (e.g. Zone, Channel, Territory).</p>
-      <p style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:5px 8px;margin-bottom:8px">⚠ Region/Area, Retailer, and Store Type are already built-in Group By options — don't add them here again.</p>
-      <table class="mapper" style="margin-bottom:6px">
-        <thead><tr><th>Field Label <span style="font-weight:400;font-size:11px">(shown in tool)</span></th><th>← Column from your file</th><th style="width:32px"></th></tr></thead>
-        <tbody id="${hierTbodyId}"></tbody>
-      </table>
-      <button class="btn btn-secondary btn-sm" onclick="addSmHierRow('${hierTbodyId}','${fieldsKey}')">+ Add Hierarchy Field</button>
-    </div>
     <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
       <button class="btn btn-primary btn-sm" style="background:${cfg.color}" onclick="applySmMapping('${uploadType}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import (${cfg.label})</button>
       <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
@@ -1627,30 +1615,6 @@ function applySmMapping(uploadType, dataKey, wrap) {
     });
     Object.entries(cfg.forceFields).forEach(([k,v]) => { row[k] = v; });
     return row;
-  });
-
-  // Process hierarchy rows
-  let hierSlot = 0;
-  const usedSlots = () => new Set([
-    ...S.sm.hierarchyFields.map(h=>h.idx),
-    ...S.sm.customHeaders.map((h,i)=>h.trim()?i:-1).filter(i=>i>=0)
-  ]);
-  const advanceSlot = () => { const u=usedSlots(); while(hierSlot<12&&u.has(hierSlot)) hierSlot++; };
-  advanceSlot();
-  wrap.querySelectorAll('input[data-hier-label]').forEach(inp => {
-    if (hierSlot >= 12) return;
-    const idx = inp.dataset.hierLabel;
-    const sel = wrap.querySelector(`select[data-hier-col="${idx}"]`);
-    if (!sel || !sel.value) return;
-    const srcCol = sel.value;
-    if (mapping[srcCol]) return; // already mapped to a standard field
-    const label = inp.value.trim() || srcCol;
-    const cKey = 'c' + (hierSlot + 1);
-    S.sm.customHeaders[hierSlot] = label;
-    rows.forEach((row, ri) => { if (data[ri]?.[srcCol] !== undefined) row[cKey] = String(data[ri][srcCol]).trim(); });
-    if (!S.sm.hierarchyFields.find(h => h.idx === hierSlot)) S.sm.hierarchyFields.push({idx: hierSlot, label});
-    hierSlot++;
-    advanceSlot();
   });
 
   S.sm.rows.push(...rows);
