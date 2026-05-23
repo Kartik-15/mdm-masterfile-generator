@@ -355,6 +355,20 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
 
   </div>
 
+  <!-- Hierarchy Fields Enrichment -->
+  <div class="card">
+    <div class="card-title">
+      <span class="card-title-left">📊 Add / Update Hierarchy Fields</span>
+    </div>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:10px">Enrich existing stores with Zone, Channel, Retailer, Territory etc. — without re-importing. Upload a CSV with Store ID + any hierarchy columns. Matching stores are updated in place; stores missing from the file are flagged.</p>
+    <div class="upload-zone" onclick="document.getElementById('hierEnrichFile').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleHierEnrichDrop(event)" style="padding:14px 20px">
+      📊 <strong>Upload hierarchy CSV</strong>
+      <div style="font-size:11px;color:#9ca3af;margin-top:3px">Store ID + Zone / Channel / Territory / Retailer etc. · CSV only</div>
+    </div>
+    <input type="file" id="hierEnrichFile" accept=".csv" style="display:none" onchange="handleHierEnrichUpload(this)">
+    <div id="hierEnrichMapperWrap"></div>
+  </div>
+
   <div class="card">
     <div class="card-title">
       <span class="card-title-left">🏪 All Stores <span style="font-size:11px;font-weight:400;color:#9ca3af">(Digital + Manual combined — this is what gets exported)</span></span>
@@ -1261,6 +1275,137 @@ const SM_CONFIGS = {
   Test:    { label:'Test Stores',  color:'#d97706', forceFields:{testShop:'1'}                      }
 };
 
+// ── Hierarchy Enrichment ──
+let _hierMissingStores = new Set();
+
+function handleHierEnrichDrop(e) {
+  e.preventDefault(); document.querySelector('.upload-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0]; if (file) processHierEnrichFile(file);
+}
+function handleHierEnrichUpload(input) {
+  if (input.files[0]) processHierEnrichFile(input.files[0]);
+  input.value = '';
+}
+function processHierEnrichFile(file) {
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true,
+    complete: res => {
+      window._hierEnrichData = res.data;
+      showHierEnrichMapper(res.data, res.meta.fields || [], 'hierEnrichMapperWrap');
+    }
+  });
+}
+function showHierEnrichMapper(data, fields, wrapId) {
+  const wrap = document.getElementById(wrapId); if (!wrap) return;
+  const guessedId = fields.find(f => /store.?id|shop.?id/i.test(f)) || fields[0] || '';
+  let html = `<div class="mapper-wrap" style="margin-top:12px">
+    <div class="mapper-title">Hierarchy Column Mapper — ${data.length} rows</div>
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:10px">Select the Store ID column, then check the columns to import as hierarchy fields.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <label style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Store ID column:</label>
+      <select id="hierEnrichIdCol" style="border:1px solid #d1d5db;border-radius:4px;padding:5px 9px;font-size:12px">
+        ${fields.map(f=>`<option value="${escHtml(f)}"${f===guessedId?' selected':''}>${escHtml(f)}</option>`).join('')}
+      </select>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr>
+        <th style="padding:6px 8px;background:#f3f4f6;border:1px solid #e5e7eb;width:40px;text-align:center">Import</th>
+        <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb">CSV Column</th>
+        <th style="padding:6px 10px;background:#f3f4f6;border:1px solid #e5e7eb">Field label in tool</th>
+      </tr></thead><tbody>`;
+  fields.forEach((f, fi) => {
+    const isId = f === guessedId;
+    const existing = S.sm.hierarchyFields.find(h => S.sm.customHeaders[h.idx] === f || h.label === f);
+    html += `<tr style="${isId?'opacity:0.35':''}">
+      <td style="padding:4px 8px;border:1px solid #e5e7eb;text-align:center">
+        <input type="checkbox" id="hierE_cb_${fi}" ${isId?'disabled':existing?'checked':''}>
+      </td>
+      <td style="padding:4px 10px;border:1px solid #e5e7eb">
+        <code>${escHtml(f)}</code>
+        ${existing?`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:1px 5px;border-radius:8px;margin-left:5px;font-weight:600">already in tool</span>`:''}
+      </td>
+      <td style="padding:4px 8px;border:1px solid #e5e7eb">
+        <input type="text" id="hierE_name_${fi}" value="${escHtml(existing?.label||f)}" placeholder="e.g. Zone"
+          ${isId?'disabled':''} style="border:1px solid #d1d5db;border-radius:4px;padding:3px 8px;font-size:12px;width:170px">
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="applyHierEnrich(this.closest('.mapper-wrap'))">✓ Apply Enrichment</button>
+      <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
+    </div></div>`;
+  wrap.innerHTML = html;
+}
+function applyHierEnrich(wrap) {
+  const data = window._hierEnrichData || [];
+  if (!data.length) return;
+  const idCol = wrap.querySelector('#hierEnrichIdCol')?.value;
+  if (!idCol) { alert('Select the Store ID column.'); return; }
+  const fields = Object.keys(data[0] || {});
+  // Collect fields to enrich
+  const toEnrich = [];
+  fields.forEach((f, fi) => {
+    if (f === idCol) return;
+    const cb = wrap.querySelector('#hierE_cb_' + fi);
+    if (!cb || !cb.checked) return;
+    const nameEl = wrap.querySelector('#hierE_name_' + fi);
+    const label = (nameEl?.value || f).trim() || f;
+    toEnrich.push({srcCol: f, label});
+  });
+  if (!toEnrich.length) { alert('Check at least one column to import.'); return; }
+  // Resolve or create c-slots
+  const usedSlots = new Set([
+    ...S.sm.hierarchyFields.map(h => h.idx),
+    ...S.sm.customHeaders.map((h,i) => h.trim() ? i : -1).filter(i => i >= 0)
+  ]);
+  const slotFor = {};
+  for (const {srcCol, label} of toEnrich) {
+    const existing = S.sm.hierarchyFields.find(h => h.label === label);
+    if (existing) { slotFor[label] = {idx: existing.idx, cKey: 'c'+(existing.idx+1)}; continue; }
+    let slot = 0; while (slot < 12 && usedSlots.has(slot)) slot++;
+    if (slot >= 12) { alert(`No free custom column slot for "${label}".`); return; }
+    S.sm.customHeaders[slot] = label;
+    S.sm.hierarchyFields.push({idx: slot, label});
+    slotFor[label] = {idx: slot, cKey: 'c'+(slot+1)};
+    usedSlots.add(slot);
+  }
+  // Index upload data by Store ID
+  const byStore = {};
+  data.forEach(row => { const sid = String(row[idCol]||'').trim(); if (sid) byStore[sid] = row; });
+  // Update store rows
+  let updated = 0;
+  S.sm.rows.forEach(row => {
+    const match = byStore[row.storeId.trim()];
+    if (!match) return;
+    toEnrich.forEach(({srcCol, label}) => {
+      const slot = slotFor[label];
+      if (slot && match[srcCol] !== undefined) row[slot.cKey] = String(match[srcCol]).trim();
+    });
+    updated++;
+  });
+  // Compute unmatched stores
+  const uploadedIds = new Set(Object.keys(byStore));
+  const missing = S.sm.rows.filter(r => r.storeId.trim() && !uploadedIds.has(r.storeId.trim()));
+  _hierMissingStores = new Set(missing.map(r => r.storeId.trim()));
+  wrap.remove();
+  renderSmGrid(); renderSmCustomColInputs(); renderGroupByButtons(); updateDots();
+  // Show result banner
+  const wrapEl = document.getElementById('hierEnrichMapperWrap');
+  if (wrapEl) {
+    const fnames = toEnrich.map(f=>`<strong>${escHtml(f.label)}</strong>`).join(', ');
+    let msg = `<div class="alert alert-ok" style="margin-top:10px;flex-direction:column;align-items:flex-start;gap:6px">
+      <span>✅ <strong>${updated}</strong> store${updated!==1?'s':''} updated with ${fnames}.</span>`;
+    if (_hierMissingStores.size) {
+      const sample = [..._hierMissingStores].slice(0,6).map(id=>escHtml(id)).join(', ') + (_hierMissingStores.size>6?` … +${_hierMissingStores.size-6} more`:'');
+      msg += `<span style="color:#92400e">⚠ <strong>${_hierMissingStores.size}</strong> store${_hierMissingStores.size!==1?'s':''} not in this file — their hierarchy values will be blank (highlighted below): ${sample}.</span>
+      <span style="font-size:11.5px;color:#6b7280">Upload an updated CSV to fill them in, or dismiss the highlights if intentional.</span>`;
+    }
+    msg += `<button class="btn btn-secondary btn-sm" onclick="_hierMissingStores=new Set();renderSmGrid();this.closest('.alert').remove()" style="margin-top:2px">Dismiss highlights</button></div>`;
+    wrapEl.innerHTML = msg;
+  }
+}
+
 function handleSmDrop(e, storeType) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag');
@@ -1422,7 +1567,9 @@ function renderSmGrid() {
     </tr></thead><tbody>`;
   rows.forEach((row,idx) => {
     const rowErrs = errors[row.id] || {};
-    html += `<tr>
+    const hierMissing = _hierMissingStores.has(row.storeId.trim());
+    if (hierMissing) html += `<tr><td colspan="100" style="padding:1px 10px;background:#fef3c7;border:1px solid #fcd34d;border-bottom:none;font-size:10.5px;color:#92400e;font-weight:500">⚠ Hierarchy field(s) not set for this store — upload an updated hierarchy CSV above</td></tr>`;
+    html += `<tr style="${hierMissing?'background:#fffbeb;border-left:3px solid #f59e0b':''}">
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       ${smCell(row,'storeId','text',rowErrs,'Store ID')}
@@ -3637,6 +3784,7 @@ function loadSession(input) {
       if (!S.sam.groupBy) S.sam.groupBy='';
       if (!S.sam.customGroupBy) S.sam.customGroupBy={fieldName:'',mapping:{}};
       if (!S.sm.hierarchyFields) S.sm.hierarchyFields=[];
+      _hierMissingStores = new Set();
       renderGroupByButtons();
       // Migrate old combo format (inline sections → sectionIds)
       S.sam.shelfCombos.forEach(c=>{
