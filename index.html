@@ -64,6 +64,10 @@ table.grid td.err{border-color:#ef4444;background:#fef2f2}
 table.grid td.warn{border-color:#f59e0b;background:#fffbeb}
 table.grid td.del-col{width:30px;text-align:center;background:#f9fafb}
 table.grid th.sel-col,table.grid td.sel-col{width:32px;text-align:center;background:#f9fafb;padding:3px}
+table.grid td.sn-cell{max-width:160px;overflow:hidden;position:relative}
+table.grid td.sn-cell input{text-overflow:ellipsis}
+table.grid td.sn-cell:focus-within{overflow:visible}
+table.grid td.sn-cell:focus-within input{position:absolute;left:0;top:0;min-width:280px;max-width:none;width:280px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.18);border:1px solid #93c5fd;border-radius:4px;z-index:20;padding:5px 8px}
 .grid-toolbar{display:flex;gap:8px;margin-bottom:8px;align-items:center}
 .row-count{font-size:11px;color:#9ca3af;margin-left:auto}
 .err-tip{font-size:10px;color:#ef4444;padding:1px 7px 3px;display:block}
@@ -162,6 +166,7 @@ body.dark table.grid td input,body.dark table.grid td select{color:#e2e8f0}
 body.dark table.grid td input:focus,body.dark table.grid td select:focus{background:#1e3a5f}
 body.dark table.grid td.err{border-color:#ef4444;background:#2d0f0f}
 body.dark table.grid td.warn{border-color:#f59e0b;background:#1f1500}
+body.dark table.grid td.sn-cell:focus-within input{background:#1e293b;border-color:#3b82f6;box-shadow:0 4px 16px rgba(0,0,0,.4)}
 body.dark .row-count{color:#475569}
 body.dark .err-tip{color:#f87171}
 body.dark .alert-info{background:#1e3a5f;border-color:#1d4ed8;color:#93c5fd}
@@ -1688,7 +1693,7 @@ function renderSmGrid() {
   const container = document.getElementById('smGridContainer');
   if (!container) return;
   const activeCustom = S.sm.customHeaders.map((h,i)=>h.trim() ? {i,h} : null).filter(Boolean);
-  const errors = validateSmRows();
+  const {errors, warnings} = validateSmRows();
   const rows = S.sm.rows;
   const tCount = rows.filter(r=>r.testShop==='1').length;
   const dCount = rows.filter(r=>r.storeType==='Digital'&&r.testShop!=='1').length;
@@ -1708,13 +1713,14 @@ function renderSmGrid() {
     </tr></thead><tbody>`;
   displayRows.forEach((row,idx) => {
     const rowErrs = errors[row.id] || {};
+    const rowWarns = warnings[row.id] || {};
     const hierMissing = _hierMissingStores.has(row.storeId.trim());
     if (hierMissing) html += `<tr><td colspan="100" style="padding:1px 10px;background:#fef3c7;border:1px solid #fcd34d;border-bottom:none;font-size:10.5px;color:#92400e;font-weight:500">⚠ Hierarchy field(s) not set for this store — upload an updated hierarchy CSV above</td></tr>`;
     html += `<tr style="${hierMissing?'background:#fffbeb;border-left:3px solid #f59e0b':''}">
       ${delMode?`<td class="sel-col"><input type="checkbox" data-id="${row.id}"></td>`:''}
       <td class="rn">${idx+1}</td>
       ${smCell(row,'storeId','text',rowErrs,'Store ID')}
-      ${smCell(row,'storeName','text',rowErrs,'Store Name')}
+      ${smCell(row,'storeName','text',rowErrs,'Store Name',rowWarns)}
       <td class="${rowErrs.storeType?'err':''}" style="${!rowErrs.storeType&&row.storeType==='Digital'?'background:#eff6ff':!rowErrs.storeType&&row.storeType==='Manual'?'background:#faf5ff':''}"><select onchange="updateSmRow('${row.id}','storeType',this.value)" style="font-weight:500">
         <option value="" ${!row.storeType?'selected':''}>—</option>
         <option ${row.storeType==='Digital'?'selected':''}>Digital</option>
@@ -1731,14 +1737,18 @@ function renderSmGrid() {
       ${smCell(row,'lng','text',rowErrs,'Longitude')}
       ${activeCustom.map(c=>`<td><input type="text" value="${escHtml(row['c'+(c.i+1)]||'')}" onchange="updateSmRow('${row.id}','c${c.i+1}',this.value)"></td>`).join('')}
     </tr>
-    ${Object.values(rowErrs).length ? `<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(rowErrs).join(' · ')}</span></td></tr>` : ''}`;
+    ${Object.values(rowErrs).length ? `<tr><td colspan="100" style="padding:2px 8px;background:#fef2f2;border:none"><span style="font-size:11px;color:#ef4444">${Object.values(rowErrs).join(' · ')}</span></td></tr>` : ''}
+    ${Object.values(rowWarns).length ? `<tr><td colspan="100" style="padding:2px 8px;background:#fffbeb;border:none"><span style="font-size:11px;color:#d97706">${Object.values(rowWarns).join(' · ')}</span></td></tr>` : ''}`;
   });
   html += '</tbody></table>';
   container.innerHTML = html;
 }
 
-function smCell(row, key, type, errs, placeholder) {
-  return `<td class="${errs[key]?'err':''}"><input type="${type}" value="${escHtml(row[key]||'')}" placeholder="${placeholder}" onchange="updateSmRow('${row.id}','${key}',this.value)"></td>`;
+function smCell(row, key, type, errs, placeholder, warns={}) {
+  const isSn = key==='storeName';
+  const cls = [errs[key]?'err':warns[key]?'warn':'', isSn?'sn-cell':''].filter(Boolean).join(' ');
+  const ta = isSn&&row[key] ? ` title="${escAttr(row[key])}"` : '';
+  return `<td class="${cls}"${ta}><input type="${type}" value="${escHtml(row[key]||'')}" placeholder="${placeholder}"${ta} onchange="updateSmRow('${row.id}','${key}',this.value)"></td>`;
 }
 
 function updateSmRow(id, key, val) {
@@ -1748,15 +1758,27 @@ function updateSmRow(id, key, val) {
 
 function validateSmRows() {
   const errors = {};
+  const warnings = {};
   const seenIds = {};
   const seenComposite = {};
+  // Pre-pass: count normalized names to detect duplicates
+  const nameCounts = {};
+  S.sm.rows.forEach(row => {
+    const n = row.storeName.trim().toLowerCase().replace(/\s+/g,' ');
+    if (n) nameCounts[n] = (nameCounts[n]||0)+1;
+  });
   S.sm.rows.forEach(row => {
     const e = {};
+    const w = {};
     if (!row.storeId.trim()) e.storeId = 'Store ID required';
     else if (!/^[a-zA-Z0-9_\-]+$/.test(row.storeId.trim())) e.storeId = 'Store ID: only letters, numbers, _ and - allowed';
     else if (seenIds[row.storeId.trim()]) e.storeId = 'Store ID must be unique';
     else seenIds[row.storeId.trim()] = true;
     if (!row.storeName.trim()) e.storeName = 'Store Name required';
+    else {
+      const normName = row.storeName.trim().toLowerCase().replace(/\s+/g,' ');
+      if (nameCounts[normName] > 1) w.storeName = 'Duplicate store name — verify this is intentional';
+    }
     if (!row.storeType) e.storeType = 'Store Type required';
     if (row.testShop === '') e.testShop = 'Test Shop required';
     if ((row.lat && !row.lng) || (!row.lat && row.lng)) { e.lat = 'Lat/Lng must be provided together'; e.lng = ''; }
@@ -1769,8 +1791,9 @@ function validateSmRows() {
     if (seenComposite[composite]) e.composite = 'Duplicate Store ID + Name + Retailer';
     else seenComposite[composite] = true;
     if (Object.keys(e).length) errors[row.id] = e;
+    if (Object.keys(w).length) warnings[row.id] = w;
   });
-  return errors;
+  return {errors, warnings};
 }
 
 function confirmSmData() {
@@ -1779,7 +1802,7 @@ function confirmSmData() {
     el.innerHTML = '<span style="color:#ef4444">⛔ No stores added yet. Upload a file or add rows manually.</span>';
     return;
   }
-  const errors = validateSmRows();
+  const {errors} = validateSmRows();
   const errCount = Object.keys(errors).length;
   const issues = [];
 
@@ -2854,6 +2877,8 @@ function renderSkuGrid() {
   syncReservedRows();
   const c = document.getElementById('skuGridContainer');
   if (!c) return;
+  // Normalize any blank/invalid flag values to '0' before validation
+  {const F=['coreFlag','npdFlag','regularOsa','sos'];S.sku.rows.filter(r=>r.skuType!=='reserved').forEach(r=>{F.forEach(k=>{if(r[k]!=='0'&&r[k]!=='1')r[k]='0';});});}
   document.getElementById('skuRowCount').textContent = S.sku.rows.length + ' rows';
   if (!S.sku.rows.length) { c.innerHTML='<p style="color:#9ca3af;font-size:12px;padding:8px">No rows yet.</p>'; renderSkuSummary(); return; }
   const isCat = S.sku.mode==='category';
@@ -3725,11 +3750,13 @@ function validateSvRows() {
 // CROSS-FILE VALIDATION
 // ============================================================
 function runValidation() {
+  // Normalize any blank flags before validation (handles sessions loaded before flags-must-be-0-or-1 rule)
+  {const F=['coreFlag','npdFlag','regularOsa','sos'];S.sku.rows.filter(r=>r.skuType!=='reserved').forEach(r=>{F.forEach(k=>{if(r[k]!=='0'&&r[k]!=='1')r[k]='0';});});}
   const results = [];
   const smIds = new Set(S.sm.rows.map(r=>r.storeId).filter(Boolean));
   const umIds = new Set(S.um.rows.map(r=>r.userId).filter(Boolean));
   const skuAssortments = new Set(getAssortmentNames());
-  const flagVals = new Set(['','0','1']);
+  const flagVals = new Set(['0','1']);
 
   // BLOCKERS
   if (!S.sm.rows.length) results.push({sev:'B',file:'sm',msg:'Store Master has no rows. All other files depend on it.'});
@@ -3753,7 +3780,7 @@ function runValidation() {
   if (svBadStores.length) results.push({sev:'B',file:'sv',msg:`Survey Master: Shop IDs not in Store Master: ${[...new Set(svBadStores)].join(', ')}`});
 
   const badFlags = S.sku.rows.filter(r=>['coreFlag','npdFlag','regularOsa','sos'].some(k=>!flagVals.has(r[k])));
-  if (badFlags.length) results.push({sev:'B',file:'sku',msg:`SKU Assortment: ${badFlags.length} row(s) have KPI flags not in {0, 1, blank}.`});
+  if (badFlags.length) results.push({sev:'B',file:'sku',msg:`SKU Assortment: ${badFlags.length} row(s) have KPI flags not set to 0 or 1.`});
 
   if (S.sku.rows.length) {
     const nonResCats = new Set(S.sku.rows.filter(r=>r.skuType!=='reserved').map(r=>r.categoryName.trim()).filter(Boolean));
@@ -4051,6 +4078,8 @@ function loadSession(input) {
       if (!S.sku.npdSkuNames) S.sku.npdSkuNames=[];
       if (!S.sku.coreSkuNames) S.sku.coreSkuNames=[];
       S.sku.assortmentDefs.forEach(af=>{ if(!af.npdNames) af.npdNames=[]; if(!af.coreNames) af.coreNames=[]; if(!af.subsetNames) af.subsetNames=[]; });
+      // Normalize SKU flag values from old sessions
+      {const F=['coreFlag','npdFlag','regularOsa','sos'];S.sku.rows.filter(r=>r.skuType!=='reserved').forEach(r=>{F.forEach(k=>{if(r[k]!=='0'&&r[k]!=='1')r[k]='0';});});}
       if (!S.sam.shelfSections) S.sam.shelfSections=[];
       if (!S.sam.shelfCombos) S.sam.shelfCombos=[];
       if (!S.sam.storeSetup) S.sam.storeSetup=[];
