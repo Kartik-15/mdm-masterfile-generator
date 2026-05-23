@@ -1306,7 +1306,7 @@ function autoGuess(field, targets) {
   const guesses = {
     storeid:['storeId','shopId'], storename:['storeName','shopName'],
     storetype:['storeType'], testshop:['testShop'], retailer:['retailer'],
-    region:['regionArea'], latitude:['lat'], longitude:['lng'],
+    region:['regionArea'], area:['regionArea'], latitude:['lat'], longitude:['lng'],
     lat:['lat'], lng:['lng'], lon:['lng'],
     userid:['userId'], username:['userName'], password:['password'],
     assortmentname:['assortmentName'], skuname:['skuName'], categoryname:['categoryName'],
@@ -1451,6 +1451,22 @@ function applyHierEnrich(wrap) {
     const stdKey = autoGuess(srcCol, standardTargets);
     if (stdKey) standardFields.push({srcCol, label, stdKey});
     else hierFields.push({srcCol, label});
+  }
+
+  // If a column was previously imported as a custom c-slot but now matches a standard field,
+  // remove the stale slot and migrate any existing data to the standard field.
+  for (const {label, stdKey} of standardFields) {
+    const slotIdx = S.sm.hierarchyFields.findIndex(h => h.label === label);
+    if (slotIdx !== -1) {
+      const {idx} = S.sm.hierarchyFields[slotIdx];
+      const cKey = 'c' + (idx + 1);
+      S.sm.rows.forEach(row => {
+        if (!row[stdKey] && row[cKey]) row[stdKey] = row[cKey];
+        row[cKey] = '';
+      });
+      S.sm.customHeaders[idx] = '';
+      S.sm.hierarchyFields.splice(slotIdx, 1);
+    }
   }
 
   // Resolve or create c-slots for hierarchy-only fields
