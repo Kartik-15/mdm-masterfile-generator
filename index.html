@@ -2290,6 +2290,7 @@ function renderAssortmentDefs() {
             </div>
             <input type="file" id="npdFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'npdFlag','assortment','${af.id}')">
             <div id="npdUploads_${af.id}" style="margin-top:6px"></div>
+            <div id="npdAssortStatus_${af.id}" style="font-size:12px;margin-top:4px"></div>
             ${(af.npdNames||[]).length?`<div style="font-size:11.5px;color:#7c3aed;margin-top:6px">✓ ${af.npdNames.length} SKU(s) marked as NPD <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','npdNames')">Clear</button></div>`:''}
           </div>
           <div class="card" style="padding:12px;background:#fff7ed;border-color:#fed7aa;margin-bottom:0">
@@ -2300,6 +2301,7 @@ function renderAssortmentDefs() {
             </div>
             <input type="file" id="coreFile_${af.id}" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFlagListUpload(this,'coreFlag','assortment','${af.id}')">
             <div id="coreUploads_${af.id}" style="margin-top:6px"></div>
+            <div id="coreAssortStatus_${af.id}" style="font-size:12px;margin-top:4px"></div>
             ${(af.coreNames||[]).length?`<div style="font-size:11.5px;color:#ea580c;margin-top:6px">✓ ${af.coreNames.length} SKU(s) marked as Core <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','coreNames')">Clear</button></div>`:''}
           </div>
         </div>
@@ -2404,8 +2406,20 @@ function applyFlagListMapping(fileKey, flagKey, scope, defId, itemId) {
   } else {
     const af=S.sku.assortmentDefs.find(a=>a.id===defId); if(!af) return;
     const listKey=flagKey==='npdFlag'?'npdNames':'coreNames';
-    af[listKey]=[...new Set([...(af[listKey]||[]),...names])];
+    // Validate: uploaded names must belong to this assortment's effective SKU set
+    const effectiveNames = (af.subsetNames||[]).length
+      ? af.subsetNames
+      : S.sku.universeRows.map(r=>r.skuName);
+    const effectiveSet = new Set(effectiveNames.map(n=>n.trim().toLowerCase()));
+    const validNames = names.filter(n=>effectiveSet.has(n.trim().toLowerCase()));
+    const skipped = names.length - validNames.length;
+    af[listKey]=[...new Set([...(af[listKey]||[]),...validNames])];
     resetConfirm('sku'); renderAssortmentDefs(); buildRows();
+    if (skipped > 0) {
+      const statusId=flagKey==='npdFlag'?`npdAssortStatus_${defId}`:`coreAssortStatus_${defId}`;
+      const statusEl=document.getElementById(statusId);
+      if (statusEl) statusEl.innerHTML=`<span style="color:#b45309">⚠️ ${validNames.length} added · ${skipped} skipped (not in assortment's SKU list)</span>`;
+    }
   }
   item.remove();
 }
