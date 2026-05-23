@@ -1105,7 +1105,7 @@ const SECTION_COLS = {
     {key:'categoryName',label:'Category Name',required:true},
     {key:'shelfSection',label:'Shelf Section',required:true},
     {key:'shelfImages',label:'Shelf Section Image Links'},
-    {key:'assortmentName',label:'Assortment Name',required:true}
+    {key:'assortmentName',label:'Assortment Name'}
   ],
   sv: [
     {key:'shopId',label:'Shop ID',required:true},
@@ -3295,9 +3295,10 @@ function renderStoreSetup() {
     ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}"${sel===co.id?' selected':''}>${escHtml(co.name||'(unnamed heading)')}</option>`)
   ].join('');
   const statusBadge=(setup)=>{
-    const hasA=setup.assortmentName, hasC=setup.comboId;
-    if (hasA&&hasC) return '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ Set</span>';
-    if (hasA||hasC) return '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">⚠ Partial</span>';
+    const hasC=setup.comboId;
+    const hasA=setup.assortmentName; // empty = Full Universe (valid)
+    if (hasC) return '<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ Set</span>';
+    if (hasA) return '<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">⚠ No combo</span>';
     return '<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:10px;font-weight:600">✗ Empty</span>';
   };
 
@@ -3316,7 +3317,7 @@ function renderStoreSetup() {
 
   if (!groupBy) {
     // ── FLAT VIEW ── unassigned stores sorted to top
-    const getPri=s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); if(!e||(!e.assortmentName&&!e.comboId)) return 0; if(e.assortmentName&&e.comboId) return 2; return 1; };
+    const getPri=s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); if(!e||(!e.comboId&&!e.assortmentName)) return 0; if(e.comboId) return 2; return 1; };
     const sortedStores=[...stores].sort((a,b)=>getPri(a)-getPri(b));
     html=`<div id="samFlatSummary" style="margin-bottom:10px"></div>
     <table style="width:100%;border-collapse:collapse;font-size:12.5px">
@@ -3399,8 +3400,8 @@ function renderStoreSetup() {
       .forEach(([groupName,groupStores],gIdx)=>{
         const gid='grp_'+gIdx;
         const isUnset=UNSET_KEYS.has(groupName);
-        const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
-        const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
+        const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.comboId; }).length;
+        const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&!e.comboId; }).length;
         const rowBg=isUnset?'#fffbeb':(done===groupStores.length?'#f0fdf4':partial>0?'#fffbeb':'#fff');
         let statusCell;
         if (done===groupStores.length) statusCell=`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ ${done}/${groupStores.length}</span>`;
@@ -3456,21 +3457,21 @@ function renderStoreSetup() {
   }
 
   // Assignment coverage panel — always shown when any store is incomplete
-  const _unassigned=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return !e||(!e.assortmentName&&!e.comboId); });
-  const _partial=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); });
+  const _unassigned=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return !e||(!e.comboId&&!e.assortmentName); });
+  const _partial=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&!e.comboId; });
   if (_unassigned.length||_partial.length) {
     let cv=`<div style="margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 14px">
       <div style="font-size:12.5px;font-weight:600;color:#991b1b;margin-bottom:6px">⚠ Incomplete Assignments — ${stores.length - (_unassigned.length+_partial.length)} / ${stores.length} stores fully set</div>`;
     if (_unassigned.length) {
-      cv+=`<div style="font-size:11.5px;font-weight:600;color:#991b1b;margin-bottom:4px">Not assigned (${_unassigned.length}) — missing both assortment and combo:</div>
+      cv+=`<div style="font-size:11.5px;font-weight:600;color:#991b1b;margin-bottom:4px">Not assigned (${_unassigned.length}) — no combination selected (assortment optional — blank = Full Universe):</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
         ${_unassigned.map(s=>`<span style="background:#fee2e2;border:1px solid #fecaca;border-radius:4px;padding:2px 8px;font-size:11.5px;color:#7f1d1d">${escHtml(s.storeId)}${s.storeName?' — '+escHtml(s.storeName):''}</span>`).join('')}
       </div>`;
     }
     if (_partial.length) {
-      cv+=`<div style="font-size:11.5px;font-weight:600;color:#92400e;margin-bottom:4px">Partially assigned (${_partial.length}) — missing one of assortment / combo:</div>
+      cv+=`<div style="font-size:11.5px;font-weight:600;color:#92400e;margin-bottom:4px">Partially assigned (${_partial.length}) — assortment set but no combination:</div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${_partial.map(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId)||{}; const miss=[!e.assortmentName?'assortment':'',!e.comboId?'combo':''].filter(Boolean).join(', '); return `<span style="background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:2px 8px;font-size:11.5px;color:#92400e">${escHtml(s.storeId)} <span style="opacity:.7">(no ${miss})</span></span>`; }).join('')}
+        ${_partial.map(s=>`<span style="background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:2px 8px;font-size:11.5px;color:#92400e">${escHtml(s.storeId)} <span style="opacity:.7">(no combination)</span></span>`).join('')}
       </div>`;
     }
     cv+='</div>';
@@ -3495,8 +3496,8 @@ function updateSamFlatSummary() {
   const allStores=S.sm.rows.filter(r=>r.storeId);
   if (!allStores.length) return;
   const setup=S.sam.storeSetup||[];
-  const done=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
-  const partial=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
+  const done=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&e.comboId; }).length;
+  const partial=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&!e.comboId; }).length;
   const unassigned=allStores.length-done-partial;
   const pending=unassigned+partial;
   if (!pending) {
@@ -3540,11 +3541,11 @@ function generateSamRows() {
   const allStores=S.sm.rows.filter(r=>r.storeId);
   const incomplete=allStores.filter(store=>{
     const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId);
-    return !setup||!setup.assortmentName||!setup.comboId;
+    return !setup||!setup.comboId;
   });
   if (incomplete.length) {
     const list=incomplete.slice(0,8).map(s=>escHtml(s.storeId+(s.storeName?' — '+s.storeName:''))).join(', ')+(incomplete.length>8?`, … (${incomplete.length-8} more)`:'');
-    if(st) st.innerHTML=`<div class="alert alert-warn" style="margin-bottom:0">⚠ <strong>${incomplete.length} store(s) missing assignment</strong> (assortment or combo not set): ${list}. Complete all assignments before generating.</div>`;
+    if(st) st.innerHTML=`<div class="alert alert-warn" style="margin-bottom:0">⚠ <strong>${incomplete.length} store(s) missing combination</strong> (assortment is optional — blank means Full Universe): ${list}. Assign a combination to every store before generating.</div>`;
     return;
   }
   let addedCount=0, skippedCount=0;
@@ -3593,7 +3594,7 @@ function renderSamGrid() {
   const displayRows = sortedRows(S.sam.rows, 'sam');
   let html = `<table class="grid"><thead><tr>
     ${delMode?'<th class="sel-col"><input type="checkbox" onchange="document.querySelectorAll(\'#samGridContainer input[type=checkbox]\').forEach(cb=>cb.checked=this.checked)"></th>':''}
-    <th>#</th>${sth('sam','shopId','Shop ID *')}<th>Category Heading</th>${sth('sam','categoryName','Category Name *')}${sth('sam','shelfSection','Shelf Section *')}<th>Image Links</th>${sth('sam','assortmentName','Assortment Name *')}</tr></thead><tbody>`;
+    <th>#</th>${sth('sam','shopId','Shop ID *')}<th>Category Heading</th>${sth('sam','categoryName','Category Name *')}${sth('sam','shelfSection','Shelf Section *')}<th>Image Links</th>${sth('sam','assortmentName','Assortment Name')}</tr></thead><tbody>`;
   const errs = validateSamRows();
   displayRows.forEach((row,idx) => {
     const e=errs[row.id]||{};
@@ -3605,7 +3606,7 @@ function renderSamGrid() {
       <td class="${e.categoryName?'err':''}"><input type="text" value="${escHtml(row.categoryName)}" onchange="updateSamRow('${row.id}','categoryName',this.value)"></td>
       <td class="${e.shelfSection?'err':''}"><input type="text" value="${escHtml(row.shelfSection)}" onchange="updateSamRow('${row.id}','shelfSection',this.value)"></td>
       <td><input type="text" value="${escHtml(row.shelfImages)}" onchange="updateSamRow('${row.id}','shelfImages',this.value)"></td>
-      <td class="${e.assortmentName?'err':''}"><input type="text" value="${escHtml(row.assortmentName)}" onchange="updateSamRow('${row.id}','assortmentName',this.value)"></td>
+      <td><input type="text" value="${escHtml(row.assortmentName)}" placeholder="(blank = Full Universe)" onchange="updateSamRow('${row.id}','assortmentName',this.value)"></td>
     </tr>`;
   });
   html += '</tbody></table>';
@@ -3619,7 +3620,6 @@ function validateSamRows() {
     if (!row.shopId.trim()) e.shopId='Shop ID required';
     if (!row.categoryName.trim()) e.categoryName='Category Name required';
     if (!row.shelfSection.trim()) e.shelfSection='Shelf Section required';
-    if (!row.assortmentName.trim()) e.assortmentName='Assortment Name required';
     if (Object.keys(e).length) errors[row.id]=e;
   });
   return errors;
