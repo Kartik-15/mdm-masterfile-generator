@@ -3255,6 +3255,7 @@ function updateStoreSetup(storeId,field,val) {
   let e=S.sam.storeSetup.find(e=>e.storeId===storeId);
   if (!e) { e={storeId,assortmentName:'',comboId:''}; S.sam.storeSetup.push(e); }
   e[field]=val;
+  updateSamFlatSummary();
 }
 function renderStoreSetup() {
   const c=document.getElementById('samStoreSetupContainer'); if(!c) return;
@@ -3296,8 +3297,11 @@ function renderStoreSetup() {
   }
 
   if (!groupBy) {
-    // ── FLAT VIEW ──
-    html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
+    // ── FLAT VIEW ── unassigned stores sorted to top
+    const getPri=s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); if(!e||(!e.assortmentName&&!e.comboId)) return 0; if(e.assortmentName&&e.comboId) return 2; return 1; };
+    const sortedStores=[...stores].sort((a,b)=>getPri(a)-getPri(b));
+    html=`<div id="samFlatSummary" style="margin-bottom:10px"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px">
       <thead><tr>
         <th style="width:36px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;text-align:center">
           <input type="checkbox" id="bulkCheckAll" onchange="document.querySelectorAll('.store-setup-cb').forEach(cb=>cb.checked=this.checked)">
@@ -3308,9 +3312,11 @@ function renderStoreSetup() {
         <th style="padding:7px 10px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151">Shelf Combination</th>
         <th style="width:74px;padding:7px 8px;background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;text-align:center">Status</th>
       </tr></thead><tbody>`;
-    stores.forEach((store,idx)=>{
+    sortedStores.forEach((store,idx)=>{
       const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
-      html+=`<tr>
+      const pri=getPri(store);
+      const rowBg=pri===0?'background:#fef2f2':pri===1?'background:#fffbeb':'';
+      html+=`<tr style="${rowBg}">
         <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center">
           <input type="checkbox" class="store-setup-cb" data-storeid="${escAttr(store.storeId)}">
         </td>
@@ -3455,6 +3461,7 @@ function renderStoreSetup() {
 
   c.innerHTML=html;
   updateBulkCombos();
+  if (!S.sam.groupBy) updateSamFlatSummary();
 }
 function updateBulkCombos() {
   const bcs=document.getElementById('bulkComboSel');
@@ -3464,6 +3471,25 @@ function updateBulkCombos() {
   const assortments=getAssortmentNames();
   bcs.innerHTML='<option value="">— select combo —</option>'+combos.map(c=>`<option value="${escHtml(c.id)}">${escHtml(c.name||'(unnamed combo)')}</option>`).join('');
   bas.innerHTML='<option value="">— select assortment —</option><option value="__FULL_UNIVERSE__">⭐ Full Universe (all SKUs)</option>'+assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`).join('');
+}
+function updateSamFlatSummary() {
+  const el=document.getElementById('samFlatSummary'); if(!el) return;
+  const allStores=S.sm.rows.filter(r=>r.storeId);
+  if (!allStores.length) return;
+  const setup=S.sam.storeSetup||[];
+  const done=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
+  const partial=allStores.filter(s=>{ const e=setup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
+  const unassigned=allStores.length-done-partial;
+  const pending=unassigned+partial;
+  if (!pending) {
+    el.innerHTML=`<div class="alert alert-ok" style="padding:8px 12px">✅ All ${allStores.length} stores fully assigned — ready to generate SAM rows.</div>`;
+  } else {
+    el.innerHTML=`<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:9px 13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:12.5px;font-weight:700;color:#1e40af">📋 ${pending} store${pending!==1?'s':''} pending</span>
+      <span style="font-size:12px;color:#6b7280">${unassigned>0?`<span style="color:#991b1b;font-weight:600">${unassigned} not started</span>`:''}${unassigned>0&&partial>0?' · ':''}${partial>0?`<span style="color:#92400e">${partial} partial</span>`:''}${(unassigned>0||partial>0)?' · ':''}${done} done</span>
+      <span style="font-size:11px;color:#9ca3af;margin-left:auto">Unassigned stores shown at top ↑</span>
+    </div>`;
+  }
 }
 function bulkApplyCombo() {
   const comboId=document.getElementById('bulkComboSel')?.value||'';
