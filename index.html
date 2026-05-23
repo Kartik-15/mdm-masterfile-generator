@@ -204,6 +204,73 @@ body.dark .tag-blue{background:#1e3a5f;color:#93c5fd}
 body.dark .tag-green{background:#052e16;color:#86efac}
 body.dark .tag-red{background:#2d0f0f;color:#fca5a5}
 body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5}
+
+/* ── Dark mode: class-based states missing overrides ── */
+body.dark table.grid th.sth:hover{background:#1e3a5f !important;color:#93c5fd !important}
+body.dark table.grid th.sth.asc,body.dark table.grid th.sth.desc{background:#1e3a5f !important;color:#93c5fd !important}
+body.dark .opt-badge{background:#334155;color:#94a3b8}
+body.dark table.fref td{border-color:#334155}
+body.dark .dl-card details ul code{background:#334155;color:#93c5fd}
+body.dark .fld-label{color:#94a3b8}
+.gb-btn-active{background:#eff6ff;color:#2563eb !important;border-color:#bfdbfe !important;font-weight:600 !important}
+body.dark .gb-btn-active{background:#1e3a5f !important;color:#60a5fa !important;border-color:#1d4ed8 !important}
+
+/* ── Dark mode: inline text color overrides ── */
+body.dark [style*="color:#374151"]{color:#e2e8f0 !important}
+body.dark [style*="color:#6b7280"]{color:#94a3b8 !important}
+body.dark [style*="color:#64748b"]{color:#94a3b8 !important}
+body.dark [style*="color:#111"]{color:#e2e8f0 !important}
+body.dark [style*="color:#7f1d1d"]{color:#fca5a5 !important}
+body.dark [style*="color:#991b1b"]{color:#fca5a5 !important}
+body.dark [style*="color:#92400e"]{color:#fde68a !important}
+body.dark [style*="color:#78350f"]{color:#fcd34d !important}
+body.dark [style*="color:#a16207"]{color:#fde68a !important}
+body.dark [style*="color:#b45309"]{color:#fde68a !important}
+body.dark [style*="color:#d97706"]{color:#fde68a !important}
+body.dark [style*="color:#ea580c"]{color:#fed7aa !important}
+body.dark [style*="color:#065f46"]{color:#86efac !important}
+body.dark [style*="color:#15803d"]{color:#86efac !important}
+body.dark [style*="color:#1e40af"]{color:#93c5fd !important}
+body.dark [style*="color:#1d4ed8"]{color:#93c5fd !important}
+body.dark [style*="color:#2563eb"]{color:#60a5fa !important}
+body.dark [style*="color:#0284c7"]{color:#38bdf8 !important}
+body.dark [style*="color:#7c3aed"]{color:#c4b5fd !important}
+body.dark [style*="color:#7e22ce"]{color:#d8b4fe !important}
+body.dark [style*="color:#9333ea"]{color:#d8b4fe !important}
+
+/* ── Dark mode: inline background overrides ── */
+body.dark [style*="background:#f9fafb"]{background:#273549 !important}
+body.dark [style*="background:#f3f4f6"]{background:#273549 !important}
+body.dark [style*="background:#fafafa"]{background:#1e293b !important}
+body.dark [style*="background:#f8fafc"]{background:#1e293b !important}
+body.dark [style*="background:#eff6ff"]{background:#1e3a5f !important}
+body.dark [style*="background:#f0f9ff"]{background:#0c2340 !important}
+body.dark [style*="background:#fef2f2"]{background:#1c0909 !important}
+body.dark [style*="background:#fee2e2"]{background:#2d0f0f !important}
+body.dark [style*="background:#fef3c7"]{background:#1c1400 !important}
+body.dark [style*="background:#fef9c3"]{background:#1c1400 !important}
+body.dark [style*="background:#fefce8"]{background:#1c1400 !important}
+body.dark [style*="background:#fffbeb"]{background:#1c1400 !important}
+body.dark [style*="background:#f0fdf4"]{background:#052e16 !important}
+body.dark [style*="background:#dcfce7"]{background:#052e16 !important}
+body.dark [style*="background:#d1fae5"]{background:#052e16 !important}
+body.dark [style*="background:#faf5ff"]{background:#2d1b4e !important}
+body.dark [style*="background:#f3e8ff"]{background:#2d1b4e !important}
+body.dark [style*="background:#fff7ed"]{background:#1c0f00 !important}
+
+/* ── Dark mode: inline border color overrides ── */
+body.dark [style*="border:1px solid #e5e7eb"]{border-color:#334155 !important}
+body.dark [style*="border:1px solid #e2e8f0"]{border-color:#334155 !important}
+body.dark [style*="border:1px solid #ebebeb"]{border-color:#334155 !important}
+body.dark [style*="border:1px solid #d1d5db"]{border-color:#475569 !important}
+body.dark [style*="border:1px solid #bfdbfe"]{border-color:#1d4ed8 !important}
+body.dark [style*="border:1px solid #bbf7d0"]{border-color:#14532d !important}
+body.dark [style*="border:1px solid #fecaca"]{border-color:#7f1d1d !important}
+body.dark [style*="border:1px solid #fde68a"]{border-color:#854d0e !important}
+body.dark [style*="border:1px solid #fcd34d"]{border-color:#854d0e !important}
+body.dark [style*="border:1px solid #fed7aa"]{border-color:#c2410c !important}
+body.dark [style*="border:1px solid #e9d5ff"]{border-color:#7c3aed !important}
+body.dark [style*="border-color:#fcd34d"]{border-color:#854d0e !important}
 </style>
 </head>
 <body>
@@ -789,7 +856,7 @@ body.dark .mapper-req-note{background:#2d0f0f;border-color:#7f1d1d;color:#fca5a5
     <!-- Group By control -->
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
       <span style="font-size:12px;font-weight:600;color:#374151;white-space:nowrap">Group by:</span>
-      <button class="btn btn-secondary btn-sm gb-btn" data-groupby="" onclick="setGroupBy('')" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;font-weight:600">Individual Stores</button>
+      <button class="btn btn-secondary btn-sm gb-btn gb-btn-active" data-groupby="" onclick="setGroupBy('')">Individual Stores</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="retailer" onclick="setGroupBy('retailer')">Retailer</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="regionArea" onclick="setGroupBy('regionArea')">Region</button>
       <button class="btn btn-secondary btn-sm gb-btn" data-groupby="storeType" onclick="setGroupBy('storeType')">Store Type</button>
@@ -3027,19 +3094,14 @@ function renderGroupByButtons() {
   container.innerHTML = fields.map(h => {
     const key = 'c' + (h.idx + 1);
     const active = S.sam.groupBy === key;
-    return `<button class="btn btn-secondary btn-sm gb-btn" data-groupby="${escAttr(key)}" onclick="setGroupBy('${escAttr(key)}')"
-      style="${active?'background:#eff6ff;color:#2563eb;border-color:#bfdbfe;font-weight:600':''}">${escHtml(h.label)}</button>`;
+    return `<button class="btn btn-secondary btn-sm gb-btn${active?' gb-btn-active':''}" data-groupby="${escAttr(key)}" onclick="setGroupBy('${escAttr(key)}')">${escHtml(h.label)}</button>`;
   }).join('');
 }
 function setGroupBy(val) {
   S.sam.groupBy = val;
   renderGroupByButtons();
   document.querySelectorAll('.gb-btn').forEach(btn => {
-    const active = btn.dataset.groupby === val;
-    btn.style.background = active ? '#eff6ff' : '';
-    btn.style.color = active ? '#2563eb' : '';
-    btn.style.borderColor = active ? '#bfdbfe' : '';
-    btn.style.fontWeight = active ? '600' : '';
+    btn.classList.toggle('gb-btn-active', btn.dataset.groupby === val);
   });
   const bar = document.getElementById('samBulkBar');
   if (bar) bar.style.display = val ? 'none' : '';
