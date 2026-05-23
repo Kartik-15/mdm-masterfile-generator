@@ -1406,7 +1406,7 @@ function showHierEnrichMapper(data, fields, wrapId) {
     const existing = S.sm.hierarchyFields.find(h => S.sm.customHeaders[h.idx] === f || h.label === f);
     html += `<tr style="${isId?'opacity:0.35':''}">
       <td style="padding:4px 8px;border:1px solid #e5e7eb;text-align:center">
-        <input type="checkbox" id="hierE_cb_${fi}" ${isId?'disabled':existing?'checked':''}>
+        <input type="checkbox" id="hierE_cb_${fi}" ${isId?'disabled':'checked'}>
       </td>
       <td style="padding:4px 10px;border:1px solid #e5e7eb">
         <code>${escHtml(f)}</code>
