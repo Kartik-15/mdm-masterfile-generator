@@ -3238,9 +3238,9 @@ function applyGroupAssignment(gid, groupByField, groupName) {
   let groupStores;
   if (groupByField === '__custom__') {
     const mapping = S.sam.customGroupBy.mapping || {};
-    groupStores = S.sm.rows.filter(r => r.storeId && (mapping[r.storeId]||'(unset)') === groupName);
+    groupStores = S.sm.rows.filter(r => r.storeId && ((mapping[r.storeId]||'').trim()||'(unmapped)') === groupName);
   } else {
-    groupStores = S.sm.rows.filter(r => r.storeId && (r[groupByField]||'').trim() === groupName);
+    groupStores = S.sm.rows.filter(r => r.storeId && ((r[groupByField]||'').trim()||'(unset)') === groupName);
   }
   groupStores.forEach(store => {
     let e = S.sam.storeSetup.find(e => e.storeId === store.storeId);
@@ -3346,14 +3346,14 @@ function renderStoreSetup() {
       groupMap[key].push(store);
     });
 
-    const groupAssOpts=['<option value="">— assortment —</option>',
-      `<option value="__FULL_UNIVERSE__">⭐ Full Universe (all SKUs)</option>`,
-      ...assortments.map(a=>`<option value="${escHtml(a)}">${escHtml(a)}</option>`)
-    ].join('');
-    const groupComboOpts=['<option value="">— combo —</option>',
-      ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}">${escHtml(co.name||'(unnamed combo)')}</option>`)
-    ].join('');
+    // Per-group consensus: if all stores in a group share the same value, pre-select it
+    const getConsensus = (grpStores, field) => {
+      const vals = grpStores.map(s=>(S.sam.storeSetup.find(e=>e.storeId===s.storeId)||{})[field]||'').filter(v=>v);
+      if (!vals.length) return '';
+      return vals.every(v=>v===vals[0]) ? vals[0] : '';
+    };
 
+    const UNSET_KEYS = new Set(['(unset)','(unmapped)']);
     const thStyle='padding:8px 10px;background:#f3f4f6;border:1px solid #e5e7eb;font-size:12px;color:#374151;text-align:left;white-space:nowrap';
     html=`<table style="width:100%;border-collapse:collapse;font-size:12.5px">
       <thead><tr>
@@ -3366,49 +3366,91 @@ function renderStoreSetup() {
         <th style="${thStyle};width:70px;text-align:center">Apply</th>
       </tr></thead><tbody>`;
 
-    Object.entries(groupMap).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([groupName,groupStores],gIdx)=>{
-      const gid='grp_'+gIdx;
-      const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
-      const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
-      const rowBg=done===groupStores.length?'#f0fdf4':partial>0?'#fffbeb':'#fff';
-      let statusCell;
-      if (done===groupStores.length) statusCell=`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ ${done}/${groupStores.length}</span>`;
-      else if (partial>0) statusCell=`<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">${done}/${groupStores.length}</span>`;
-      else statusCell=`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:10px;font-weight:600">0/${groupStores.length}</span>`;
-      const tdStyle=`padding:6px 8px;border:1px solid #e5e7eb;background:${rowBg}`;
-      html+=`<tr>
-        <td style="${tdStyle};text-align:center">
-          <button id="${gid}_toggle" onclick="toggleGroupStores('${gid}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#6b7280;padding:0;line-height:1">▸</button>
-        </td>
-        <td style="${tdStyle}"><strong style="color:#1e3a5f">${escHtml(groupName)}</strong></td>
-        <td style="${tdStyle};text-align:center;color:#6b7280;font-size:12px">${groupStores.length}</td>
-        <td style="${tdStyle};padding:4px 6px">
-          <select id="${gid}_assort" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${groupAssOpts}</select>
-        </td>
-        <td style="${tdStyle};padding:4px 6px">
-          <select id="${gid}_combo" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${groupComboOpts}</select>
-        </td>
-        <td style="${tdStyle};text-align:center">${statusCell}</td>
-        <td style="${tdStyle};text-align:center">
-          <button class="btn btn-primary btn-sm" onclick="applyGroupAssignment('${gid}','${escAttr(groupBy)}','${escAttr(groupName)}')" style="white-space:nowrap">Apply</button>
-        </td>
-      </tr>
-      <tr id="${gid}_stores" style="display:none">
-        <td colspan="7" style="padding:0;border:1px solid #e5e7eb;border-top:none">
-          <div style="padding:8px 12px;background:#f9fafb;display:flex;flex-wrap:wrap;gap:5px">`;
-      groupStores.forEach(store=>{
-        const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
-        const comboLabel=setup.comboId?(S.sam.shelfCombos.find(co=>co.id===setup.comboId)?.name||'?'):'—';
-        const assLabel=setup.assortmentName==='__FULL_UNIVERSE__'?'⭐ Full Universe':(setup.assortmentName||'—');
-        html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:4px 8px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combo: ${escAttr(comboLabel)}">
-          <span style="color:#374151">${escHtml(store.storeId)}${store.storeName?' — '+escHtml(store.storeName):''}</span>
-          ${statusBadge(setup)}
-        </div>`;
+    Object.entries(groupMap)
+      .sort((a,b)=>{
+        const aU=UNSET_KEYS.has(a[0]), bU=UNSET_KEYS.has(b[0]);
+        if (aU&&!bU) return 1; if (!aU&&bU) return -1;
+        return a[0].localeCompare(b[0]);
+      })
+      .forEach(([groupName,groupStores],gIdx)=>{
+        const gid='grp_'+gIdx;
+        const isUnset=UNSET_KEYS.has(groupName);
+        const done=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&e.assortmentName&&e.comboId; }).length;
+        const partial=groupStores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); }).length;
+        const rowBg=isUnset?'#fffbeb':(done===groupStores.length?'#f0fdf4':partial>0?'#fffbeb':'#fff');
+        let statusCell;
+        if (done===groupStores.length) statusCell=`<span style="font-size:10px;background:#d1fae5;color:#065f46;padding:2px 6px;border-radius:10px;font-weight:600">✓ ${done}/${groupStores.length}</span>`;
+        else if (partial>0) statusCell=`<span style="font-size:10px;background:#fef3c7;color:#92400e;padding:2px 6px;border-radius:10px;font-weight:600">${done}/${groupStores.length}</span>`;
+        else statusCell=`<span style="font-size:10px;background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:10px;font-weight:600">0/${groupStores.length}</span>`;
+        const tdStyle=`padding:6px 8px;border:1px solid #e5e7eb;background:${rowBg}`;
+        const groupLabel=isUnset?`⚠ No ${fieldLabel} set`:groupName;
+
+        // Build per-group dropdowns with consensus pre-selection
+        const selAssort=getConsensus(groupStores,'assortmentName');
+        const selCombo=getConsensus(groupStores,'comboId');
+        const gAssOpts=['<option value="">— assortment —</option>',
+          `<option value="__FULL_UNIVERSE__"${selAssort==='__FULL_UNIVERSE__'?' selected':''}>⭐ Full Universe (all SKUs)</option>`,
+          ...assortments.map(a=>`<option value="${escHtml(a)}"${selAssort===a?' selected':''}>${escHtml(a)}</option>`)
+        ].join('');
+        const gComboOpts=['<option value="">— combo —</option>',
+          ...S.sam.shelfCombos.map(co=>`<option value="${escHtml(co.id)}"${selCombo===co.id?' selected':''}>${escHtml(co.name||'(unnamed combo)')}</option>`)
+        ].join('');
+
+        html+=`<tr>
+          <td style="${tdStyle};text-align:center">
+            <button id="${gid}_toggle" onclick="toggleGroupStores('${gid}')" style="background:none;border:none;cursor:pointer;font-size:13px;color:#6b7280;padding:0;line-height:1">▸</button>
+          </td>
+          <td style="${tdStyle}"><strong style="color:${isUnset?'#92400e':'#1e3a5f'}">${escHtml(groupLabel)}</strong></td>
+          <td style="${tdStyle};text-align:center;color:#6b7280;font-size:12px">${groupStores.length}</td>
+          <td style="${tdStyle};padding:4px 6px">
+            <select id="${gid}_assort" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${gAssOpts}</select>
+          </td>
+          <td style="${tdStyle};padding:4px 6px">
+            <select id="${gid}_combo" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:4px 6px;font-size:12px">${gComboOpts}</select>
+          </td>
+          <td style="${tdStyle};text-align:center">${statusCell}</td>
+          <td style="${tdStyle};text-align:center">
+            <button class="btn btn-primary btn-sm" onclick="applyGroupAssignment('${gid}','${escAttr(groupBy)}','${escAttr(groupName)}')" style="white-space:nowrap">Apply</button>
+          </td>
+        </tr>
+        <tr id="${gid}_stores" style="display:none">
+          <td colspan="7" style="padding:0;border:1px solid #e5e7eb;border-top:none">
+            <div style="padding:8px 12px;background:#f9fafb;display:flex;flex-wrap:wrap;gap:5px">`;
+        groupStores.forEach(store=>{
+          const setup=S.sam.storeSetup.find(e=>e.storeId===store.storeId)||{assortmentName:'',comboId:''};
+          const comboLabel=setup.comboId?(S.sam.shelfCombos.find(co=>co.id===setup.comboId)?.name||'?'):'—';
+          const assLabel=setup.assortmentName==='__FULL_UNIVERSE__'?'⭐ Full Universe':(setup.assortmentName||'—');
+          html+=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:4px 8px;font-size:11.5px;display:flex;align-items:center;gap:5px" title="Assortment: ${escAttr(assLabel)} | Combo: ${escAttr(comboLabel)}">
+            <span style="color:#374151">${escHtml(store.storeId)}${store.storeName?' — '+escHtml(store.storeName):''}</span>
+            ${statusBadge(setup)}
+          </div>`;
+        });
+        html+=`</div></td></tr>`;
       });
-      html+=`</div></td></tr>`;
-    });
     html+='</tbody></table>';
     if (Object.keys(groupMap).length===0) html='<div class="alert alert-warn">No stores match the selected grouping field.</div>';
+  }
+
+  // Assignment coverage panel — always shown when any store is incomplete
+  const _unassigned=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return !e||(!e.assortmentName&&!e.comboId); });
+  const _partial=stores.filter(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId); return e&&(e.assortmentName||e.comboId)&&!(e.assortmentName&&e.comboId); });
+  if (_unassigned.length||_partial.length) {
+    let cv=`<div style="margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 14px">
+      <div style="font-size:12.5px;font-weight:600;color:#991b1b;margin-bottom:6px">⚠ Incomplete Assignments — ${stores.length - (_unassigned.length+_partial.length)} / ${stores.length} stores fully set</div>`;
+    if (_unassigned.length) {
+      cv+=`<div style="font-size:11.5px;font-weight:600;color:#991b1b;margin-bottom:4px">Not assigned (${_unassigned.length}) — missing both assortment and combo:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+        ${_unassigned.map(s=>`<span style="background:#fee2e2;border:1px solid #fecaca;border-radius:4px;padding:2px 8px;font-size:11.5px;color:#7f1d1d">${escHtml(s.storeId)}${s.storeName?' — '+escHtml(s.storeName):''}</span>`).join('')}
+      </div>`;
+    }
+    if (_partial.length) {
+      cv+=`<div style="font-size:11.5px;font-weight:600;color:#92400e;margin-bottom:4px">Partially assigned (${_partial.length}) — missing one of assortment / combo:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${_partial.map(s=>{ const e=S.sam.storeSetup.find(e=>e.storeId===s.storeId)||{}; const miss=[!e.assortmentName?'assortment':'',!e.comboId?'combo':''].filter(Boolean).join(', '); return `<span style="background:#fef3c7;border:1px solid #fde68a;border-radius:4px;padding:2px 8px;font-size:11.5px;color:#92400e">${escHtml(s.storeId)} <span style="opacity:.7">(no ${miss})</span></span>`; }).join('')}
+      </div>`;
+    }
+    cv+='</div>';
+    html+=cv;
   }
 
   c.innerHTML=html;
