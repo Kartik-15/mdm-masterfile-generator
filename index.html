@@ -1471,7 +1471,8 @@ function showSmMapper(data, fields, uploadType, wrapId) {
   html += `</tbody></table>
   <div style="margin-top:14px;border-top:1px solid #e5e7eb;padding-top:12px">
     <div style="font-size:12.5px;font-weight:600;color:#374151;margin-bottom:3px">📊 Hierarchy Fields <span style="font-size:11.5px;font-weight:400;color:#6b7280">— optional, for store grouping on the SAM tab</span></div>
-    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Check any columns to import as hierarchy grouping fields (Zone, Channel, Territory, etc.). These become Group By options on the Store-Assortment Mapping tab.</p>
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:4px">Check any columns to import as hierarchy grouping fields (Zone, Channel, Territory, etc.). These become additional Group By options on the Store-Assortment Mapping tab.</p>
+    <p style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:4px;padding:5px 8px;margin-bottom:8px">⚠ Don't check columns already mapped to standard fields above (Region/Area, Retailer, Store Type) — those are already available as Group By options on the SAM tab.</p>
     <table style="font-size:12px"><tbody>
     ${fields.map((f,fi)=>`<tr>
       <td style="padding:3px 6px"><input type="checkbox" id="hier_cb_${fi}"></td>
@@ -1516,6 +1517,8 @@ function applySmMapping(uploadType, dataKey, wrap) {
     if (hierSlot >= 12) return;
     const cb = wrap.querySelector('#hier_cb_' + fi);
     if (!cb || !cb.checked) return;
+    // Skip columns already mapped to a built-in SM field — they don't need a custom hierarchy slot
+    if (mapping[f]) return;
     const nameEl = wrap.querySelector('#hier_name_' + fi);
     const label = (nameEl?.value || f).trim() || f;
     const cKey = 'c' + (hierSlot + 1);
