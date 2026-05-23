@@ -1442,13 +1442,24 @@ function applyHierEnrich(wrap) {
     toEnrich.push({srcCol: f, label});
   });
   if (!toEnrich.length) { alert('Check at least one column to import.'); return; }
-  // Resolve or create c-slots
+
+  // Split: standard SM fields vs. new hierarchy slots
+  const standardTargets = SECTION_COLS.sm.filter(t => !['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'].includes(t.key));
+  const standardFields = []; // {srcCol, label, stdKey}
+  const hierFields = [];     // {srcCol, label}
+  for (const {srcCol, label} of toEnrich) {
+    const stdKey = autoGuess(srcCol, standardTargets);
+    if (stdKey) standardFields.push({srcCol, label, stdKey});
+    else hierFields.push({srcCol, label});
+  }
+
+  // Resolve or create c-slots for hierarchy-only fields
   const usedSlots = new Set([
     ...S.sm.hierarchyFields.map(h => h.idx),
     ...S.sm.customHeaders.map((h,i) => h.trim() ? i : -1).filter(i => i >= 0)
   ]);
   const slotFor = {};
-  for (const {srcCol, label} of toEnrich) {
+  for (const {srcCol, label} of hierFields) {
     const existing = S.sm.hierarchyFields.find(h => h.label === label);
     if (existing) { slotFor[label] = {idx: existing.idx, cKey: 'c'+(existing.idx+1)}; continue; }
     let slot = 0; while (slot < 12 && usedSlots.has(slot)) slot++;
@@ -1458,6 +1469,7 @@ function applyHierEnrich(wrap) {
     slotFor[label] = {idx: slot, cKey: 'c'+(slot+1)};
     usedSlots.add(slot);
   }
+
   // Index upload data by Store ID
   const byStore = {};
   data.forEach(row => { const sid = String(row[idCol]||'').trim(); if (sid) byStore[sid] = row; });
@@ -1466,7 +1478,12 @@ function applyHierEnrich(wrap) {
   S.sm.rows.forEach(row => {
     const match = byStore[row.storeId.trim()];
     if (!match) return;
-    toEnrich.forEach(({srcCol, label}) => {
+    // Write into built-in standard fields directly
+    standardFields.forEach(({srcCol, stdKey}) => {
+      if (match[srcCol] !== undefined) row[stdKey] = String(match[srcCol]).trim();
+    });
+    // Write into custom hierarchy slots
+    hierFields.forEach(({srcCol, label}) => {
       const slot = slotFor[label];
       if (slot && match[srcCol] !== undefined) row[slot.cKey] = String(match[srcCol]).trim();
     });
@@ -1481,7 +1498,10 @@ function applyHierEnrich(wrap) {
   // Show result banner
   const wrapEl = document.getElementById('hierEnrichMapperWrap');
   if (wrapEl) {
-    const fnames = toEnrich.map(f=>`<strong>${escHtml(f.label)}</strong>`).join(', ');
+    const fnames = [
+      ...standardFields.map(f=>`<strong>${escHtml(f.label)}</strong> <span style="font-size:10.5px;color:#6b7280">(standard field)</span>`),
+      ...hierFields.map(f=>`<strong>${escHtml(f.label)}</strong> <span style="font-size:10.5px;color:#6b7280">(hierarchy)</span>`)
+    ].join(', ');
     let msg = `<div class="alert alert-ok" style="margin-top:10px;flex-direction:column;align-items:flex-start;gap:6px">
       <span>✅ <strong>${updated}</strong> store${updated!==1?'s':''} updated with ${fnames}.</span>`;
     if (_hierMissingStores.size) {
