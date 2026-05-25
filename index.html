@@ -2470,17 +2470,25 @@ function buildRows() {
     renderSkuGrid(); renderAssortmentPreview(); updateDots(); return;
   }
 
-  // With assortments — each assortment gets the FULL universe (all self + all competitors).
+  // With assortments — each assortment gets the universe rows for its applicable categories.
+  // If an assortment has no categories selected it applies to all categories.
   // Reserved classes are added per (category, assortment) pair by syncReservedRows.
   // Per-assortment NPD/Core flag lists apply overrides on top of universe defaults.
   const assKey = S.sku.mode==='category'?'assortmentName':'storeMetaCol';
 
+  // Track which categories are explicitly covered by at least one assortment
+  const coveredCats = new Set();
+  const hasAllCatsAssortment = S.sku.assortmentDefs.some(af=>af.assortmentName && !(af.categories||[]).length);
+
   S.sku.assortmentDefs.forEach(af=>{
     if (!af.assortmentName) return;
+    const catFilter=(af.categories||[]);
     const subsetSet=new Set((af.subsetNames||[]).map(n=>n.trim().toLowerCase()));
     const npdSet=new Set((af.npdNames||[]).map(n=>n.trim().toLowerCase()));
     const coreSet=new Set((af.coreNames||[]).map(n=>n.trim().toLowerCase()));
-    const baseRows=subsetSet.size?S.sku.universeRows.filter(r=>subsetSet.has(r.skuName.trim().toLowerCase())):S.sku.universeRows;
+    // Filter universe rows by category if specific categories are selected
+    const catFiltered=catFilter.length?S.sku.universeRows.filter(r=>catFilter.includes(r.categoryName.trim())):S.sku.universeRows;
+    const baseRows=subsetSet.size?catFiltered.filter(r=>subsetSet.has(r.skuName.trim().toLowerCase())):catFiltered;
     baseRows.forEach(r=>{
       const nr={...r,id:uid()};
       nr[assKey]=af.assortmentName;
@@ -2488,7 +2496,23 @@ function buildRows() {
       if (coreSet.size&&coreSet.has(nr.skuName.trim().toLowerCase())) nr.coreFlag='1';
       S.sku.rows.push(nr);
     });
+    catFilter.forEach(c=>coveredCats.add(c));
   });
+
+  // Full-universe fallback: categories not explicitly covered by any assortment
+  // (only relevant when at least one assortment has specific categories — otherwise all cats already covered)
+  if (!hasAllCatsAssortment && coveredCats.size) {
+    const allUnivCats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))];
+    const uncoveredCats=allUnivCats.filter(c=>!coveredCats.has(c));
+    uncoveredCats.forEach(cat=>{
+      S.sku.universeRows.filter(r=>r.categoryName.trim()===cat).forEach(r=>{
+        const nr={...r,id:uid()};
+        nr[assKey]=''; // no assortment name — full universe fallback
+        S.sku.rows.push(nr);
+      });
+    });
+  }
+
   S.sku.rows.forEach(_normFlags);
   syncReservedRows();
   renderSkuGrid(); renderAssortmentPreview(); updateDots();
@@ -2497,8 +2521,16 @@ function buildRows() {
 // ── Assortment definitions ──
 function addAssortmentDef() {
   const id='adef_'+uid();
-  S.sku.assortmentDefs.push({id, assortmentName:'', subsetNames:[], npdNames:[], coreNames:[]});
+  S.sku.assortmentDefs.push({id, assortmentName:'', categories:[], subsetNames:[], npdNames:[], coreNames:[]});
   renderAssortmentDefs();
+}
+
+function toggleAssortmentCategory(afId, catName, checked) {
+  const af=S.sku.assortmentDefs.find(a=>a.id===afId); if(!af) return;
+  if (!af.categories) af.categories=[];
+  if (checked) { if (!af.categories.includes(catName)) af.categories.push(catName); }
+  else { af.categories=af.categories.filter(c=>c!==catName); }
+  resetConfirm('sku'); renderAssortmentDefs(); buildRows();
 }
 
 function removeAssortmentDef(id) {
@@ -2514,7 +2546,23 @@ function updateAssortmentName(id, val) {
 function renderAssortmentDefs() {
   const c=document.getElementById('assortmentDefsList'); if(!c) return;
   if (!S.sku.assortmentDefs.length) { c.innerHTML=''; return; }
-  c.innerHTML=S.sku.assortmentDefs.map(af=>`
+  const univCats=[...new Set(S.sku.universeRows.map(r=>r.categoryName.trim()).filter(Boolean))].sort();
+  c.innerHTML=S.sku.assortmentDefs.map(af=>{
+    const selCats=af.categories||[];
+    const allCats=selCats.length===0;
+    const catPicker = univCats.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${univCats.map(cat=>{
+          const chk=selCats.includes(cat);
+          return `<label style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:16px;border:1px solid ${chk?'#16a34a':'#d1d5db'};background:${chk?'#dcfce7':'#f9fafb'};cursor:pointer;font-size:12px;font-weight:${chk?'600':'400'};color:${chk?'#15803d':'#374151'}">
+            <input type="checkbox" ${chk?'checked':''} style="display:none" onchange="toggleAssortmentCategory('${af.id}','${escHtml(cat).replace(/'/g,'\\x27')}',this.checked)">
+            ${escHtml(cat)}
+          </label>`;
+        }).join('')}
+      </div>
+      ${allCats?`<p style="font-size:11.5px;color:#6b7280;margin-top:6px;font-style:italic">No category selected — this assortment applies to <strong>all categories</strong> in the universe.</p>`:`<p style="font-size:11.5px;color:#15803d;margin-top:6px">Applies to: <strong>${selCats.join(', ')}</strong></p>`}
+    ` : `<p style="font-size:11.5px;color:#9ca3af;font-style:italic">Upload SKU Universe first to see available categories.</p>`;
+    return `
     <div class="card" style="margin-bottom:10px;border-top:3px solid #2563eb">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <div class="fld-group" style="margin-bottom:0;flex:1;min-width:200px">
@@ -2524,8 +2572,13 @@ function renderAssortmentDefs() {
         <button class="btn btn-danger btn-sm" style="align-self:flex-end" onclick="removeAssortmentDef('${af.id}')">Remove</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card" style="padding:12px;background:#f0fdf4;border-color:#86efac;margin-bottom:0">
+          <p style="font-size:12px;font-weight:600;color:#15803d;margin-bottom:4px">① Applicable Categories <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+          <p style="font-size:11.5px;color:#6b7280;margin-bottom:6px">Select the categories this assortment applies to. If none selected, it applies to all categories. Categories not covered by any assortment will automatically get the full universe as a fallback.</p>
+          ${catPicker}
+        </div>
         <div class="card" style="padding:12px;background:#eff6ff;border-color:#bfdbfe;margin-bottom:0">
-          <p style="font-size:12px;font-weight:600;color:#1d4ed8;margin-bottom:4px">① SKU Subset <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+          <p style="font-size:12px;font-weight:600;color:#1d4ed8;margin-bottom:4px">② SKU Subset <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
           <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Upload a list of SKU names from the universe. Only these SKUs will be included in this assortment. If not uploaded, all universe SKUs are included automatically.</p>
           <div class="upload-zone" style="padding:10px" onclick="document.getElementById('subsetFile_${af.id}').click()">
             <strong style="font-size:12px">Upload SKU Subset List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel — one column of SKU names</p>
@@ -2536,7 +2589,7 @@ function renderAssortmentDefs() {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="card" style="padding:12px;background:#faf5ff;border-color:#e9d5ff;margin-bottom:0">
-            <p style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:4px">② NPD Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+            <p style="font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:4px">③ NPD Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
             <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → NPD = 1 for this assortment only. Only updates flags — does not add rows.</p>
             <div class="upload-zone" style="padding:10px" onclick="document.getElementById('npdFile_${af.id}').click()">
               <strong style="font-size:12px">Upload NPD List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
@@ -2547,7 +2600,7 @@ function renderAssortmentDefs() {
             ${(af.npdNames||[]).length?`<div style="font-size:11.5px;color:#7c3aed;margin-top:6px">✓ ${af.npdNames.length} SKU(s) marked as NPD <button class="btn btn-secondary btn-sm" style="font-size:10.5px;padding:2px 7px;margin-left:4px" onclick="clearFlagList('${af.id}','npdNames')">Clear</button></div>`:''}
           </div>
           <div class="card" style="padding:12px;background:#fff7ed;border-color:#fed7aa;margin-bottom:0">
-            <p style="font-size:12px;font-weight:600;color:#ea580c;margin-bottom:4px">③ Core Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
+            <p style="font-size:12px;font-weight:600;color:#ea580c;margin-bottom:4px">④ Core Flag List <span style="font-weight:400;color:#9ca3af">(optional)</span></p>
             <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">SKUs in this list → Core = 1 for this assortment only. Only updates flags — does not add rows.</p>
             <div class="upload-zone" style="padding:10px" onclick="document.getElementById('coreFile_${af.id}').click()">
               <strong style="font-size:12px">Upload Core List</strong><p style="font-size:11px;margin-top:2px">CSV / Excel</p>
@@ -2559,7 +2612,8 @@ function renderAssortmentDefs() {
           </div>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderAssortmentPhase() {
