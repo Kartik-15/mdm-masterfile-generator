@@ -1205,31 +1205,41 @@ function showMapper(data, fields, section, wrapId) {
   wrap.innerHTML = html;
 }
 
-// Can't embed large JSON in onclick, use data attribute approach
+// MDM-field-on-left mapper: same UX as Store Master mapper
 function showMapper2(data, fields, section, wrapId) {
   const targets = SECTION_COLS[section] || [];
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   const dataKey = '_mapData_' + section;
   window[dataKey] = data;
-  const reqLabels = targets.filter(t => t.required).map(t => t.label);
+  const reqTargets = targets.filter(t => t.required);
+
+  function bestGuess(tgtKey) {
+    const tgt = targets.find(t => t.key === tgtKey);
+    if (!tgt) return '';
+    return fields.find(f => autoGuess(f, [tgt]) === tgtKey) || '';
+  }
+
+  const fieldRows = targets.map(t => {
+    const guess = bestGuess(t.key);
+    const opts = `<option value="">— skip —</option>` +
+      fields.map(f => `<option value="${escHtml(f)}"${guess===f?' selected':''}>${escHtml(f)}</option>`).join('');
+    return `<tr>
+      <td style="padding:5px 10px;font-size:12.5px">${escHtml(t.label)}${t.required?` <span class="req-badge">Required</span>`:''}</td>
+      <td style="padding:4px 8px"><select data-tgt="${t.key}" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:12px">${opts}</select></td>
+    </tr>`;
+  }).join('');
+
   let html = `<div class="mapper-wrap">
-    <div class="mapper-title">Column Mapper — ${data.length} rows detected from your file</div>
-    ${reqLabels.length ? `<div class="mapper-req-note"><strong>Required fields to map:</strong> ${reqLabels.join(', ')} — make sure these are assigned before clicking Apply.</div>` : ''}
-    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">The tool has auto-guessed matches. Check each row — adjust if needed — then click Apply.</p>
-    <table class="mapper"><thead><tr><th>Your column name</th><th>→ Maps to MDM field</th></tr></thead><tbody>`;
-  fields.forEach(f => {
-    const guessedKey = autoGuess(f, targets);
-    html += `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
-      <option value="">— skip this column —</option>
-      ${targets.map(t => `<option value="${t.key}" ${guessedKey===t.key?'selected':''}>${t.required?'* ':''}${t.label}</option>`).join('')}
-    </select></td></tr>`;
-  });
-  html += `</tbody></table>
-  <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-    <button class="btn btn-primary btn-sm" onclick="applyMapping2('${section}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import Rows</button>
-    <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
-  </div></div>`;
+    <div class="mapper-title">Column Mapper — ${data.length} rows detected</div>
+    ${reqTargets.length ? `<div class="mapper-req-note"><strong>Required fields:</strong> ${reqTargets.map(t=>t.label).join(', ')} — map these before clicking Apply.</div>` : ''}
+    <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Select the column from your file that corresponds to each MDM field. Auto-guessed matches are pre-selected.</p>
+    <table class="mapper"><thead><tr><th>MDM Field</th><th>← Column from your file</th></tr></thead>
+    <tbody>${fieldRows}</tbody></table>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary btn-sm" onclick="applyMapping2('${section}','${dataKey}',this.closest('.mapper-wrap'))">✓ Apply &amp; Import Rows</button>
+      <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
+    </div></div>`;
   wrap.innerHTML = html;
 }
 
@@ -1243,9 +1253,14 @@ function applyMapping2(section, dataKey, wrap) {
 }
 
 function applyMappingCore(section, data, wrap) {
-  const selects = wrap.querySelectorAll('select[data-src]');
-  const mapping = {};
-  selects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
+  const tgtSelects = [...wrap.querySelectorAll('select[data-tgt]')];
+  const srcSelects = [...wrap.querySelectorAll('select[data-src]')];
+  const mapping = {};  // { fileColName: mdmKey }
+  if (tgtSelects.length) {
+    tgtSelects.forEach(sel => { if (sel.value) mapping[sel.value] = sel.dataset.tgt; });
+  } else {
+    srcSelects.forEach(sel => { if (sel.value) mapping[sel.dataset.src] = sel.value; });
+  }
   // Strip empty rows before creating MDM rows
   const cleanData = data.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const rows = cleanData.map(srcRow => {
@@ -3981,7 +3996,7 @@ const QC_GUIDELINES = {
   ],
   sv: [
     '<code>Shop ID</code> must match Store Master IDs exactly (case-sensitive).',
-    'Valid <code>Question Type</code> values: <code>text</code>, <code>number</code>, <code>sos</code>, <code>price</code>, <code>date</code>, <code>phototext</code>.',
+    'Valid <code>Question Type</code> values: <code>single</code>, <code>multiple</code>, <code>sos</code>, <code>price</code>, <code>date</code>, <code>phototext</code>.',
     'Leave <code>Answers</code> blank for <code>sos</code>, <code>price</code>, <code>date</code>, and <code>phototext</code> question types.',
     'Question text appears verbatim in the mobile app — proofread carefully for typos before uploading.',
   ],
