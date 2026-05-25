@@ -1185,24 +1185,7 @@ function processUploadedFile(file, section) {
 }
 
 function showMapper(data, fields, section, wrapId) {
-  const targets = SECTION_COLS[section] || [];
-  const wrap = document.getElementById(wrapId);
-  if (!wrap) return;
-  let html = `<div class="mapper-wrap"><div class="mapper-title">Map columns from uploaded file to MDM fields (${data.length} rows detected)</div>
-  <table class="mapper"><thead><tr><th>Source Column</th><th>→ Maps to</th></tr></thead><tbody>`;
-  fields.forEach(f => {
-    const guessedKey = autoGuess(f, targets);
-    html += `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
-      <option value="">— skip —</option>
-      ${targets.map(t => `<option value="${t.key}" ${guessedKey===t.key?'selected':''}>${t.label}</option>`).join('')}
-    </select></td></tr>`;
-  });
-  html += `</tbody></table>
-  <div style="margin-top:10px;display:flex;gap:8px">
-    <button class="btn btn-primary btn-sm" onclick="applyMapping('${section}',${JSON.stringify(data).replace(/</g,'&lt;')},this.closest('.mapper-wrap'))">Apply Mapping</button>
-    <button class="btn btn-secondary btn-sm" onclick="this.closest('.mapper-wrap').remove()">Cancel</button>
-  </div></div>`;
-  wrap.innerHTML = html;
+  showMapper2(data, fields, section, wrapId);
 }
 
 // MDM-field-on-left mapper: same UX as Store Master mapper
@@ -1243,9 +1226,6 @@ function showMapper2(data, fields, section, wrapId) {
   wrap.innerHTML = html;
 }
 
-// Override showMapper to use the safe version
-const _origShowMapper = showMapper;
-window.showMapper = showMapper2;
 
 function applyMapping2(section, dataKey, wrap) {
   const data = window[dataKey] || [];
@@ -2866,15 +2846,14 @@ function handleSkuUpload(input, skuTypeCtx='self') {
         <input type="text" id="${itemId}_assortment" placeholder="e.g. Modern Trade Assortment" style="margin-top:4px;width:100%;max-width:360px;padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:4px">
       </div>` : ''}
       <div class="mapper-wrap">
-        <div class="mapper-title">Map columns from your file to MDM fields</div>
-        <div class="mapper-req-note" style="margin-bottom:8px"><strong>Required:</strong> * SKU Name, * Category Name. Defaults: SOS = 1, Regular OSA = ${skuTypeCtx==='self'?'1':'0'} (${typeLabel})</div>
-        <table class="mapper"><thead><tr><th>Your column name</th><th>→ Maps to MDM field</th></tr></thead><tbody>
-        ${fields.map(f=>{
-          const gk = autoGuess(f, targets);
-          return `<tr><td><code>${escHtml(f)}</code></td><td><select data-src="${escHtml(f)}">
-            <option value="">— skip this column —</option>
-            ${targets.map(t=>`<option value="${t.key}" ${gk===t.key?'selected':''}>${t.required?'* ':''}${t.label}</option>`).join('')}
-          </select></td></tr>`;
+        <div class="mapper-title">Column Mapper — ${data.length} rows detected</div>
+        <div class="mapper-req-note" style="margin-bottom:8px"><strong>Required fields:</strong> SKU Name, Category Name — map these before clicking Apply. Defaults: SOS = 1, Regular OSA = ${skuTypeCtx==='self'?'1':'0'} (${typeLabel})</div>
+        <p style="font-size:11.5px;color:#6b7280;margin-bottom:8px">Select the column from your file that corresponds to each MDM field. Auto-guessed matches are pre-selected.</p>
+        <table class="mapper"><thead><tr><th>MDM Field</th><th>← Column from your file</th></tr></thead><tbody>
+        ${targets.map(t=>{
+          const guess = fields.find(f => autoGuess(f, [t]) === t.key) || '';
+          const opts = `<option value="">— skip —</option>` + fields.map(f=>`<option value="${escHtml(f)}"${guess===f?' selected':''}>${escHtml(f)}</option>`).join('');
+          return `<tr><td style="padding:5px 10px;font-size:12.5px">${escHtml(t.label)}${t.required?` <span class="req-badge">Required</span>`:''}</td><td style="padding:4px 8px"><select data-tgt="${t.key}" style="width:100%;border:1px solid #d1d5db;border-radius:4px;padding:5px 8px;font-size:12px">${opts}</select></td></tr>`;
         }).join('')}
         </tbody></table>
         <button class="btn btn-primary btn-sm" style="margin-top:8px;background:${typeColor}" onclick="applySkuMapping('${fileKey}','${itemId}','${skuTypeCtx}')">✓ Apply &amp; Import Rows</button>
@@ -2894,9 +2873,9 @@ function applySkuMapping(dataKey, itemId, skuTypeCtx) {
   const data = raw.filter(r => Object.values(r).some(v => String(v).trim() !== ''));
   const item = document.getElementById(itemId);
   if (!item) return;
-  const selects = item.querySelectorAll('select[data-src]');
+  const selects = item.querySelectorAll('select[data-tgt]');
   const mapping = {};
-  selects.forEach(s => { if (s.value) mapping[s.dataset.src] = s.value; });
+  selects.forEach(s => { if (s.value) mapping[s.value] = s.dataset.tgt; });
   const compOsa = S.sku.trackCompOsa ? '1' : '0';
   const mappedKeys = new Set(Object.values(mapping));
   const rows = data.map(src => {
@@ -4422,7 +4401,7 @@ function confirmSchData() {
     if (orphanUsers.length) msg+=`<br><span style="font-size:12px;color:#7f1d1d">${orphanUsers.length} user(s) not in User Master: ${orphanUsers.join(', ')}</span>`;
     el.innerHTML=msg;
   } else {
-    const uncovered=[...smIds].filter(id=>!schIds.has(id));
+    const uncovered=[...smIds].filter(id=>!schStoreIds.has(id));
     S.confirmed.sch=true;updateDots();
     el.innerHTML=`<span style="color:#16a34a">✅ <strong>Schedule Master confirmed!</strong> ${S.sch.rows.length} row(s).${uncovered.length?` ⚠️ ${uncovered.length} unscheduled store(s).`:' All stores scheduled.'}</span>`;
   }
