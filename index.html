@@ -2109,6 +2109,17 @@ function validateSchRows() {
     if (row.startDate && !/^\d{4}-\d{2}-\d{2}$/.test(row.startDate)) e.startDate='Format: YYYY-MM-DD';
     if (row.endDate && !/^\d{4}-\d{2}-\d{2}$/.test(row.endDate)) e.endDate='Format: YYYY-MM-DD';
     if (row.startDate && row.endDate && row.startDate >= row.endDate) e.endDate='End Date must be after Start Date';
+    if (row.startDate && row.endDate && /^\d{4}-\d{2}-\d{2}$/.test(row.startDate) && /^\d{4}-\d{2}-\d{2}$/.test(row.endDate) && !e.startDate && !e.endDate) {
+      const sd=new Date(row.startDate), ed=new Date(row.endDate);
+      const syyyy=sd.getUTCFullYear(), smm=sd.getUTCMonth(), eyyyy=ed.getUTCFullYear(), emm=ed.getUTCMonth();
+      if (syyyy!==eyyyy||smm!==emm) {
+        e.endDate='Start and End Date must be in the same month';
+      } else {
+        const daysInMonth=new Date(syyyy,smm+1,0).getUTCDate();
+        const duration=Math.round((ed-sd)/(1000*60*60*24));
+        if (duration>=daysInMonth) e.endDate=`Duration exceeds ${daysInMonth} days (the length of that month)`;
+      }
+    }
     const pair = `${row.storeId}|${row.userId}`;
     if (seenPairs[pair]) e.storeId=(e.storeId?e.storeId+'; ':'')+'Duplicate Store+User assignment';
     else seenPairs[pair]=true;
@@ -2270,8 +2281,17 @@ function setSchGlobalDate(key, val) {
   if (!status) return;
   const badStart=S.sch.globalStartDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalStartDate);
   const badEnd=S.sch.globalEndDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalEndDate);
-  if (badStart||badEnd) status.innerHTML='<span style="color:#ef4444">⛔ Invalid format — use YYYY-MM-DD</span>';
-  else if (S.sch.globalStartDate||S.sch.globalEndDate) status.textContent='Click "Apply to all rows" to push to grid.';
+  if (badStart||badEnd) { status.innerHTML='<span style="color:#ef4444">⛔ Invalid format — use YYYY-MM-DD</span>'; return; }
+  if (S.sch.globalStartDate&&S.sch.globalEndDate) {
+    const sd=new Date(S.sch.globalStartDate), ed=new Date(S.sch.globalEndDate);
+    const syyyy=sd.getUTCFullYear(), smm=sd.getUTCMonth(), eyyyy=ed.getUTCFullYear(), emm=ed.getUTCMonth();
+    if (syyyy!==eyyyy||smm!==emm) { status.innerHTML='<span style="color:#ef4444">⛔ Start and End Date must be in the same month</span>'; return; }
+    if (sd>=ed) { status.innerHTML='<span style="color:#ef4444">⛔ End Date must be after Start Date</span>'; return; }
+    const daysInMonth=new Date(syyyy,smm+1,0).getUTCDate();
+    const duration=Math.round((ed-sd)/(1000*60*60*24));
+    if (duration>=daysInMonth) { status.innerHTML=`<span style="color:#ef4444">⛔ Duration exceeds ${daysInMonth} days (the length of that month)</span>`; return; }
+  }
+  if (S.sch.globalStartDate||S.sch.globalEndDate) status.textContent='Click "Apply to all rows" to push to grid.';
   else status.textContent='';
 }
 
@@ -2280,6 +2300,14 @@ function applySchGlobalDates() {
   const badEnd=S.sch.globalEndDate&&!/^\d{4}-\d{2}-\d{2}$/.test(S.sch.globalEndDate);
   if (badStart||badEnd){alert('Fix date format (YYYY-MM-DD) before applying.');return;}
   if (!S.sch.globalStartDate&&!S.sch.globalEndDate){alert('Enter at least one date first.');return;}
+  if (S.sch.globalStartDate&&S.sch.globalEndDate) {
+    const sd=new Date(S.sch.globalStartDate), ed=new Date(S.sch.globalEndDate);
+    const syyyy=sd.getUTCFullYear(), smm=sd.getUTCMonth();
+    if (syyyy!==ed.getUTCFullYear()||smm!==ed.getUTCMonth()){alert('Start and End Date must be in the same month.');return;}
+    if (sd>=ed){alert('End Date must be after Start Date.');return;}
+    const daysInMonth=new Date(syyyy,smm+1,0).getUTCDate();
+    if (Math.round((ed-sd)/(1000*60*60*24))>=daysInMonth){alert(`Duration exceeds ${daysInMonth} days (the length of that month).`);return;}
+  }
   S.sch.rows.forEach(r=>{
     if (S.sch.globalStartDate) r.startDate=S.sch.globalStartDate;
     if (S.sch.globalEndDate) r.endDate=S.sch.globalEndDate;
